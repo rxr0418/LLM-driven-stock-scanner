@@ -1,0 +1,174 @@
+{
+  "regime": "NEUTRAL",
+  "description": "Mixed signals (VIX=18.4, RVol=10.7%, Trend=55%). No clear regime. Using combined factor approach.",
+  "factors_used": [
+    "momentum_20d",
+    "reversal_5d",
+    "volume_spike"
+  ],
+  "long_watchlist": [
+    {
+      "ticker": "BA",
+      "factor_score": 1.0,
+      "signal": "NEUTRAL",
+      "confidence": 42,
+      "news_alignment": "CONTRADICTS",
+      "reason": "China deal disappointment triggered share slide, undermining bullish momentum despite perfect factor score.",
+      "risk_flag": "China trade deal underwhelmed expectations — geopolitical and order volume uncertainty persist",
+      "news_titles": [
+        "Syensqo SA (SHBBF) Q1 2026 Earnings Call Highlights: Strategic Moves and Market Challenges",
+        "Maybe the Trust Busters Got It Wrong",
+        "Boeing shares slide as Donald Trump’s China summit deals disappoint",
+        "Boeing Gets China Deal at Trump’s Visit, With Many Questions",
+        "Boeing’s Big Order From China Isn’t Big Enough—and the Stock Is Paying for It"
+      ]
+    },
+    {
+      "ticker": "QCOM",
+      "factor_score": 1.0,
+      "signal": "BUY",
+      "confidence": 62,
+      "news_alignment": "NEUTRAL",
+      "reason": "Perfect factor score meets mixed news; rebound narrative present but rally skepticism noted.",
+      "risk_flag": "Semiconductor sector rotation risk; ARM competitive pressure on QCOM ecosystem",
+      "news_titles": [
+        "ARM's Powerful Ecosystem Advantage Drives Market Leadership",
+        "Qualcomm stock gets harsh reality check after semiconductor rally",
+        "Qualcomm Bears Could Be Missing a Major Rebound",
+        "Meta vs. Snap: What Do Their Quarterly Revenue Trends Tell Investors?",
+        "Investors Heavily Search QUALCOMM Incorporated (QCOM): Here is What You Need to Know"
+      ]
+    },
+    {
+      "ticker": "SBUX",
+      "factor_score": 0.8889,
+      "signal": "NEUTRAL",
+      "confidence": 48,
+      "news_alignment": "CONTRADICTS",
+      "reason": "Layoffs and $400M restructuring charge signal operational distress, undermining bullish momentum factor.",
+      "risk_flag": "$400M restructuring charge and ongoing job cuts signal turnaround uncertainty",
+      "news_titles": [
+        "Starbucks says it's laying off 300 US employees, hints at more job cuts to come",
+        "Starbucks Cuts 300 Corporate Jobs and Takes $400M Restructuring Charge",
+        "Sector Update: Consumer Stocks Softer Late Afternoon",
+        "Starbucks cuts 300 US corporate jobs and closes some regional offices",
+        "Starbucks to Cut 300 US Support Jobs, Consolidate Regional Offices"
+      ]
+    },
+    {
+      "ticker": "ADBE",
+      "factor_score": 0.8765,
+      "signal": "BUY",
+      "confidence": 72,
+      "news_alignment": "SUPPORTS",
+      "reason": "Agentic AI expansion and platform integrations support bullish momentum, though Figma competition warrants caution.",
+      "risk_flag": "Figma narrative shift may signal competitive pressure in creative tools market",
+      "news_titles": [
+        "Figma’s Earnings Just Flipped the Narrative",
+        "Adobe (ADBE) Expands Its Agentic AI Push With New Acrobat Productivity Agent",
+        "Is Generative AI Expanding Adobe's Digital Media Opportunity?",
+        "MongoDB (MDB) Announces New Capabilities to Provide Unified AI Data Platform for Production Agents",
+        "Adobe (ADBE) Integrates Agentic AI With Major Tech Platforms to Automate Customer Workflows"
+      ]
+    },
+    {
+      "ticker": "HD",
+      "factor_score": 0.7778,
+      "signal": "BUY",
+      "confidence": 62,
+      "news_alignment": "NEUTRAL",
+      "reason": "Strong factor signal intact; news is mixed with customer tracking backlash offset by bargain valuation framing.",
+      "risk_flag": "Customer tracking backlash may weigh on brand sentiment; retail earnings cycle upcoming",
+      "news_titles": [
+        "Home Depot Faces Growing Backlash Over Customer Tracking",
+        "Nvidia, Retail Earnings: What to Watch in the Next Week",
+        "Is Most-Watched Stock The Home Depot, Inc. (HD) Worth Betting on Now?",
+        "10 Quality Stocks That Hit New Lows This Week—and Look Like Bargains",
+        "The Zacks Analyst Blog Highlights Home Depot, TJX Companies, Marvell Technology and C&F Financial"
+      ]
+    }
+  ],
+  "short_watchlist": [
+    {
+      "ticker": "META",
+      "factor_score": 0.0,
+      "signal": "NEUTRAL",
+      "confidence": 42,
+      "news_alignment": "NEUTRAL",
+      "reason": "No META-specific news confirms short thesis; Zuckerberg message to employees adds ambiguous internal risk.",
+      "risk_flag": "Unknown nature of Zuckerberg internal message could signal material corporate development",
+      "news_titles": [
+        "The global memory shortage is coming for Nintendo",
+        "The market is at the start of the next commodity supercycle, Carlyle's Jeff Currie says",
+        "Mark Zuckerberg sends stunning message to Meta employees",
+        "Trump’s More Than 3,700 Trades Astonish Wall Street Insiders",
+        "Aptos SVP says blockchains will 'build a new universe'"
+      ]
+    },
+    {
+      "ticker": "COP",
+      "factor_score": 0.0247,
+      "signal": "AVOID",
+      "confidence": 38,
+      "news_alignment": "CONTRADICTS",
+      "reason": "Energy sector gaining momentum and rising oil prices contradict bearish short signal on COP.",
+      "risk_flag": "Sector-wide energy rally and high oil prices create upside risk against short position",
+      "news_titles": [
+        "Sector Update: Energy Stocks Gain Late Afternoon",
+        "Sector Update: Energy Stocks Rise Friday Afternoon",
+        "How Will High Oil Prices Aid ExxonMobil's Energy Business?",
+        "Stocks Slide as Inflation Fears Lift Bond Yields",
+        "TotalEnergies Expands Eastern Mediterranean Gas Exposure As Valuation Looks Compelling"
+      ]
+    },
+    {
+      "ticker": "LLY",
+      "factor_score": 0.0494,
+      "signal": "AVOID",
+      "confidence": 62,
+      "news_alignment": "CONTRADICTS",
+      "reason": "Strong Q1 guidance upgrade and obesity trial results contradict bearish short signal on LLY.",
+      "risk_flag": "Positive catalysts from guidance upgrade and new trial data risk short squeeze",
+      "news_titles": [
+        "Morgan Stanley flags vital Eli Lilly signal for 2026",
+        "Eli Lilly (LLY) Valuation Check After Strong Q1 Guidance Upgrade And New Obesity Trial Results",
+        "BIIB Advances Alzheimer's Disease Drug Despite Study Missing Main Goal",
+        "How Important Are Skyrizi and Rinvoq to AbbVie's Q1 Results?",
+        "Prediction. The S&P 500 Is So Far Above Its Moving Averages That a 10% Correction This Summer Is Not Out of the Question"
+      ]
+    },
+    {
+      "ticker": "NFLX",
+      "factor_score": 0.0494,
+      "signal": "AVOID",
+      "confidence": 38,
+      "news_alignment": "CONTRADICTS",
+      "reason": "Netflix raised guidance and analysts see 283% upside, directly contradicting the short signal.",
+      "risk_flag": "Raised guidance and bullish analyst targets create significant short squeeze risk",
+      "news_titles": [
+        "Trump’s More Than 3,700 Trades Astonish Wall Street Insiders",
+        "Netflix AI INKubator Launch Raises New Questions For NFLX Valuation",
+        "Google's YouTube Revenue May Be Bigger Than Wall Street Thought, Topping Netflix",
+        "Nvidia Stock Is the King of the AI Castle. History Tells Us It Will Fall Hard and Its Replacement Will Emerge From Thin Air.",
+        "Netflix Just Raised Guidance. The Market Sold It Off. We See 283% Upside"
+      ]
+    },
+    {
+      "ticker": "CVX",
+      "factor_score": 0.0864,
+      "signal": "AVOID",
+      "confidence": 52,
+      "news_alignment": "NEUTRAL",
+      "reason": "Asset sale raises capital allocation concerns; news is mixed with no clear bullish catalyst.",
+      "risk_flag": "Asia-Pacific asset sale to ENEOS may signal portfolio weakness or strategic uncertainty",
+      "news_titles": [
+        "Berkshire Boosted Stake in Alphabet in First Quarter, Bought Delta Air, Sold Visa, Mastercard",
+        "Chevron Asia-Pacific Asset Sale To ENEOS Raises Fresh Capital Allocation Questions",
+        "Par Pacific Shares Plunge 13% as Q1 Earnings Miss Estimates",
+        "IPO Stock Of The Week: WaterBridge Flows Toward Record High In Near-50% Run-Up",
+        "How Will High Oil Prices Aid ExxonMobil's Energy Business?"
+      ]
+    }
+  ],
+  "timestamp": "2026-05-15 16:06:36"
+}
