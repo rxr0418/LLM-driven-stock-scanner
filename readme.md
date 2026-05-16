@@ -18,6 +18,9 @@ Every day, before market open:
 ---
 
 ## Sample Output (2026-05-15)
+## Dashboard
+
+![Dashboard](screenshots/dashboard.png)
 
 ```
 Regime  : NEUTRAL

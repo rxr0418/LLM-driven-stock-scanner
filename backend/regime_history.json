@@ -1,24 +1,6 @@
 [
   {
     "regime": "NEUTRAL",
-    "timestamp": "2026-05-15 23:11:17",
-    "vix": 18.43,
-    "realized_vol": 0.1074
-  },
-  {
-    "regime": "NEUTRAL",
-    "timestamp": "2026-05-15 23:11:18",
-    "vix": 18.43,
-    "realized_vol": 0.1074
-  },
-  {
-    "regime": "NEUTRAL",
-    "timestamp": "2026-05-15 23:11:20",
-    "vix": 18.43,
-    "realized_vol": 0.1074
-  },
-  {
-    "regime": "NEUTRAL",
     "timestamp": "2026-05-15 23:11:27",
     "vix": 18.43,
     "realized_vol": 0.1074
@@ -26,6 +8,24 @@
   {
     "regime": "NEUTRAL",
     "timestamp": "2026-05-15 23:11:31",
+    "vix": 18.43,
+    "realized_vol": 0.1074
+  },
+  {
+    "regime": "NEUTRAL",
+    "timestamp": "2026-05-15 23:24:37",
+    "vix": 18.43,
+    "realized_vol": 0.1074
+  },
+  {
+    "regime": "NEUTRAL",
+    "timestamp": "2026-05-15 23:24:37",
+    "vix": 18.43,
+    "realized_vol": 0.1074
+  },
+  {
+    "regime": "NEUTRAL",
+    "timestamp": "2026-05-15 23:24:39",
     "vix": 18.43,
     "realized_vol": 0.1074
   }

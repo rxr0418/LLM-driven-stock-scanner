@@ -109,15 +109,19 @@ function RegimePanel({ regime }) {
       <div className="regime-stats">
         <div className="stat">
           <span className="stat-label">VIX</span>
-          <span className="stat-value">{regime.vix}</span>
+          <span className="stat-value">{regime.vix ?? "—"}</span>
         </div>
         <div className="stat">
           <span className="stat-label">Realized Vol</span>
-          <span className="stat-value">{(regime.realized_vol * 100).toFixed(1)}%</span>
+          <span className="stat-value">
+            {regime.realized_vol ? (regime.realized_vol * 100).toFixed(1) + "%" : "—"}
+          </span>
         </div>
         <div className="stat">
           <span className="stat-label">Trend</span>
-          <span className="stat-value">{(regime.trend_strength * 100).toFixed(0)}%</span>
+          <span className="stat-value">
+            {regime.trend_strength ? (regime.trend_strength * 100).toFixed(0) + "%" : "—"}
+          </span>
         </div>
         <div className="stat">
           <span className="stat-label">Factors</span>
@@ -168,9 +172,9 @@ export default function App() {
         regime:              r.data.regime,
         description:         r.data.description,
         recommended_factors: r.data.factors_used,
-        vix:                 "—",
-        realized_vol:        0,
-        trend_strength:      0,
+        vix:                 r.data.vix,
+        realized_vol:        r.data.realized_vol,
+        trend_strength:      r.data.trend_strength,
       });
       setLastRun(r.data.timestamp);
     } catch (e) {
@@ -238,7 +242,7 @@ export default function App() {
         </div>
 
         <button
-          className="btn btn-secondary"
+          className={`btn ${!hasLlm ? "btn-active" : "btn-secondary"}`}
           onClick={runFactorScan}
           disabled={loading || llmLoading}
         >
@@ -246,16 +250,12 @@ export default function App() {
         </button>
 
         <button
-          className="btn btn-primary"
+          className={`btn ${hasLlm ? "btn-active" : "btn-secondary"}`}
           onClick={runFullScan}
           disabled={loading || llmLoading}
         >
-          {llmLoading ? "Analyzing…" : "✦ Full Scan + LLM"}
+          {llmLoading ? "Analyzing…" : "✦ Full Scan (LLM included)"}
         </button>
-
-        {hasLlm && (
-          <span className="llm-badge">✓ LLM analysis included</span>
-        )}
       </div>
 
       {/* Error */}

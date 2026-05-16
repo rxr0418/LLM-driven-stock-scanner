@@ -14,9 +14,9 @@
   --border:      #1e2530;
   --border-light:#2a3444;
 
-  --text:        #e2e8f0;
-  --text-muted:  #64748b;
-  --text-dim:    #334155;
+  --text:        #f9f9f9;   
+  --text-muted:  #94a3b8;  
+  --text-dim:    #64748b;   
 
   --green:       #22c55e;
   --green-dim:   #14532d;
@@ -162,16 +162,17 @@ body {
   color: var(--accent);
 }
 
-.btn-primary {
-  background: var(--accent-dim);
+.btn-active {
+  background: var(--accent);
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent);
-  color: var(--bg);
+.btn-active:hover:not(:disabled) {
+  opacity: 0.85;
 }
+
 
 .llm-badge {
   font-family: var(--font-mono);
