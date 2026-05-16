@@ -1,0 +1,262 @@
+"""
+api.py - FastAPI backend for the LLM-driven stock scanner.
+
+Endpoints:
+  GET  /api/health          → health check
+  GET  /api/regime          → current market regime
+  GET  /api/scan            → run full scan (factor only, no LLM)
+  POST /api/scan/full       → run full scan with LLM analysis
+  GET  /api/history         → list saved watchlists
+  GET  /api/history/{id}    → load a specific saved watchlist
+
+Run with:
+  uvicorn api:app --reload --port 8000
+"""
+
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+import uvicorn
+from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+# ── Local modules ─────────────────────────────────────────────
+import sys
+sys.path.append(str(Path(__file__).parent))
+
+from data        import fetch_price_data, fetch_news_batch, UNIVERSE
+from regime      import detect_regime
+from scanner     import run_scan
+from llm_analyst import analyze_watchlist
+from main        import stable_regime, save_results
+
+
+# ─────────────────────────────────────────────────────────────
+# App setup
+# ─────────────────────────────────────────────────────────────
+
+app = FastAPI(
+    title="LLM-Driven Stock Scanner",
+    description="Regime-adaptive factor scanner with LLM news analysis",
+    version="1.0.0",
+)
+
+# Allow React frontend to call this API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# In-memory cache to avoid re-running expensive scans
+_cache: dict = {}
+RESULTS_DIR = Path("results")
+RESULTS_DIR.mkdir(exist_ok=True)
+
+
+# ─────────────────────────────────────────────────────────────
+# Response models
+# ─────────────────────────────────────────────────────────────
+
+class RegimeResponse(BaseModel):
+    regime: str
+    vix: float
+    realized_vol: float
+    trend_strength: float
+    volatile_votes: int
+    trending_votes: int
+    recommended_factors: list
+    description: str
+    timestamp: str
+
+
+class StockSignal(BaseModel):
+    ticker: str
+    score: float
+    signal: Optional[str] = None
+    confidence: Optional[int] = None
+    news_alignment: Optional[str] = None
+    reason: Optional[str] = None
+    risk_flag: Optional[str] = None
+    news_titles: Optional[list] = None
+
+
+class ScanResponse(BaseModel):
+    regime: str
+    description: str
+    factors_used: list
+    long_candidates: list
+    short_candidates: list
+    timestamp: str
+    has_llm_analysis: bool = False
+
+
+# ─────────────────────────────────────────────────────────────
+# Endpoints
+# ─────────────────────────────────────────────────────────────
+
+@app.get("/api/health")
+def health():
+    """Health check endpoint."""
+    return {
+        "status": "ok",
+        "timestamp": datetime.now().isoformat(),
+        "universe_size": len(UNIVERSE),
+    }
+
+
+@app.get("/api/regime", response_model=RegimeResponse)
+def get_regime():
+    """
+    Detect and return the current market regime.
+    Uses stability filter to prevent rapid switching.
+    """
+    raw    = detect_regime()
+    stable = stable_regime(raw, min_streak=2)
+    return stable
+
+
+@app.get("/api/scan", response_model=ScanResponse)
+def get_scan(top_n: int = 10):
+    """
+    Run factor scan without LLM analysis.
+    Fast — no API calls, returns in ~10 seconds.
+
+    Query params:
+      top_n : number of candidates per side (default 10)
+    """
+    print(f"[api] Running factor scan, top_n={top_n}...")
+
+    price_data    = fetch_price_data(UNIVERSE, lookback_days=90)
+    raw_regime    = detect_regime()
+    regime_result = stable_regime(raw_regime, min_streak=2)
+    scan_results  = run_scan(price_data, regime_result, top_n=top_n)
+
+    if "error" in scan_results:
+        raise HTTPException(status_code=500, detail=scan_results["error"])
+
+    return {**scan_results, "has_llm_analysis": False}
+
+
+@app.post("/api/scan/full", response_model=ScanResponse)
+def get_full_scan(top_n: int = 10, save: bool = True):
+    """
+    Run full scan with LLM news analysis.
+    Slower — makes Claude API calls for each candidate.
+
+    Query params:
+      top_n : number of candidates per side (default 10)
+      save  : save results to disk (default true)
+    """
+    print(f"[api] Running full scan with LLM, top_n={top_n}...")
+
+    price_data    = fetch_price_data(UNIVERSE, lookback_days=90)
+    raw_regime    = detect_regime()
+    regime_result = stable_regime(raw_regime, min_streak=2)
+    scan_results  = run_scan(price_data, regime_result, top_n=top_n)
+
+    if "error" in scan_results:
+        raise HTTPException(status_code=500, detail=scan_results["error"])
+
+    # Fetch news for all candidates
+    all_tickers = (
+        [x["ticker"] for x in scan_results["long_candidates"]] +
+        [x["ticker"] for x in scan_results["short_candidates"]]
+    )
+    news_data = fetch_news_batch(all_tickers, max_articles=5)
+
+    # LLM analysis
+    watchlist = analyze_watchlist(scan_results, news_data, top_n=top_n)
+
+    # Save to disk
+    if save:
+        filepath = save_results(watchlist)
+        print(f"[api] Saved to {filepath}")
+
+    # Cache latest result
+    _cache["latest"] = watchlist
+
+    return {
+    **watchlist,
+    "long_candidates":  watchlist.get("long_watchlist", []),
+    "short_candidates": watchlist.get("short_watchlist", []),
+    "has_llm_analysis": True,
+}
+
+@app.get("/api/latest")
+def get_latest():
+    """
+    Return the most recently cached scan result.
+    If no scan has been run yet, load the most recent saved file.
+    """
+    # Try in-memory cache first
+    if "latest" in _cache:
+        return _cache["latest"]
+
+    # Fall back to most recent saved file
+    saved_files = sorted(RESULTS_DIR.glob("watchlist_*.json"), reverse=True)
+    if saved_files:
+        with open(saved_files[0]) as f:
+            data = json.load(f)
+        _cache["latest"] = data
+        return data
+
+    raise HTTPException(
+        status_code=404,
+        detail="No scan results available. Run /api/scan/full first."
+    )
+
+
+@app.get("/api/history")
+def get_history():
+    """
+    List all saved watchlist files with metadata.
+    """
+    saved_files = sorted(RESULTS_DIR.glob("watchlist_*.json"), reverse=True)
+    history = []
+    for f in saved_files[:20]:  # return last 20
+        try:
+            with open(f) as fp:
+                data = json.load(fp)
+            history.append({
+                "id":        f.stem,
+                "timestamp": data.get("timestamp", ""),
+                "regime":    data.get("regime", ""),
+                "factors":   data.get("factors_used", []),
+                "filename":  f.name,
+            })
+        except Exception:
+            continue
+    return {"history": history}
+
+
+@app.get("/api/history/{scan_id}")
+def get_historical_scan(scan_id: str):
+    """
+    Load a specific saved watchlist by ID (filename stem).
+    """
+    filepath = RESULTS_DIR / f"{scan_id}.json"
+    if not filepath.exists():
+        raise HTTPException(status_code=404, detail=f"Scan {scan_id} not found")
+
+    with open(filepath) as f:
+        return json.load(f)
+
+
+@app.get("/api/universe")
+def get_universe():
+    """Return the current stock universe."""
+    return {"tickers": UNIVERSE, "count": len(UNIVERSE)}
+
+
+# ─────────────────────────────────────────────────────────────
+# Run
+# ─────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)

@@ -1,0 +1,110 @@
+{
+  "regime": "NEUTRAL",
+  "description": "Mixed signals (VIX=18.4, RVol=10.7%, Trend=55%). No clear regime. Using combined factor approach.",
+  "factors_used": [
+    "momentum_20d",
+    "reversal_5d",
+    "volume_spike"
+  ],
+  "long_watchlist": [
+    {
+      "ticker": "BA",
+      "factor_score": 1.0,
+      "signal": "STRONG_BUY",
+      "confidence": 87,
+      "news_alignment": "SUPPORTS",
+      "reason": "China confirmed 200-aircraft order directly catalyzes Boeing's strongest-possible bullish factor signal.",
+      "risk_flag": "US-China trade relations remain volatile; deal could unravel if geopolitical tensions escalate",
+      "news_titles": [
+        "Boeing Stock Gains As Scott Bessent Hints At 'Large' Orders From China Amid Trump-Xi Meeting— 'We're Going To See...'",
+        "GE Aerospace Taps US China Deal For Long Term Engine Revenue",
+        "These Stocks Are Today’s Movers: Intel, Boeing, Cerebras, Microsoft, DexCom, Figma, Coherent, Coinbase, and More",
+        "Boeing confirms China commitment to buy 200 aircraft",
+        "Syensqo SA (SHBBF) Q1 2026 Earnings Call Highlights: Strategic Moves and Market Challenges"
+      ]
+    },
+    {
+      "ticker": "QCOM",
+      "factor_score": 1.0,
+      "signal": "BUY",
+      "confidence": 62,
+      "news_alignment": "NEUTRAL",
+      "reason": "Max factor score supports long; news is mixed with no major negative catalyst for QCOM.",
+      "risk_flag": "ARM antitrust probe adds indirect sector uncertainty; QCOM-specific bearish sentiment noted",
+      "news_titles": [
+        "Arm Holdings to face US antitrust probe over chip tech, Bloomberg News reports",
+        "ARM's Powerful Ecosystem Advantage Drives Market Leadership",
+        "Qualcomm stock gets harsh reality check after semiconductor rally",
+        "Qualcomm Bears Could Be Missing a Major Rebound",
+        "Meta vs. Snap: What Do Their Quarterly Revenue Trends Tell Investors?"
+      ]
+    },
+    {
+      "ticker": "SBUX",
+      "factor_score": 0.8889,
+      "signal": "NEUTRAL",
+      "confidence": 52,
+      "news_alignment": "NEUTRAL",
+      "reason": "Layoffs and $400M restructuring charge signal turnaround risk, partially offsetting strong factor momentum.",
+      "risk_flag": "$400M restructuring charge and ongoing job cuts signal earnings pressure and execution risk",
+      "news_titles": [
+        "Starbucks says it's laying off 300 US employees, hints at more job cuts to come",
+        "Starbucks is Set to Lay Off 300 Corporate Employees as Part of Its Turnaround Strategy",
+        "Starbucks Cuts 300 Corporate Jobs and Takes $400M Restructuring Charge",
+        "Sector Update: Consumer Stocks Softer Late Afternoon",
+        "Starbucks cuts 300 US corporate jobs and closes some regional offices"
+      ]
+    }
+  ],
+  "short_watchlist": [
+    {
+      "ticker": "META",
+      "factor_score": 0.0,
+      "signal": "NEUTRAL",
+      "confidence": 42,
+      "news_alignment": "NEUTRAL",
+      "reason": "No META-specific catalysts in news; factor score is maximally bearish but news is ambiguous.",
+      "risk_flag": "Zuckerberg internal message to employees — unknown content could signal material development",
+      "news_titles": [
+        "The global memory shortage is coming for Nintendo",
+        "The market is at the start of the next commodity supercycle, Carlyle's Jeff Currie says",
+        "YouTube, Snap and TikTok settle school district's social media addiction claims",
+        "Mark Zuckerberg sends stunning message to Meta employees",
+        "Trump’s More Than 3,700 Trades Astonish Wall Street Insiders"
+      ]
+    },
+    {
+      "ticker": "COP",
+      "factor_score": 0.0247,
+      "signal": "AVOID",
+      "confidence": 38,
+      "news_alignment": "CONTRADICTS",
+      "reason": "Energy sector showing strength and rising oil prices contradict the bearish SHORT signal on COP.",
+      "risk_flag": "Energy sector tailwind and oil price support may squeeze short position",
+      "news_titles": [
+        "Stocks Settle Sharply Lower as Bond Yields Jump on Inflation Fears",
+        "Sector Update: Energy Stocks Gain Late Afternoon",
+        "Sector Update: Energy Stocks Rise Friday Afternoon",
+        "How Will High Oil Prices Aid ExxonMobil's Energy Business?",
+        "Stocks Slide as Inflation Fears Lift Bond Yields"
+      ]
+    },
+    {
+      "ticker": "NFLX",
+      "factor_score": 0.0494,
+      "signal": "AVOID",
+      "confidence": 38,
+      "news_alignment": "CONTRADICTS",
+      "reason": "Stock is rising and AI initiative launch creates upside catalyst risk against short signal.",
+      "risk_flag": "Netflix AI INKubator launch and stock upward momentum may squeeze short positions",
+      "news_titles": [
+        "Netflix (NFLX) Stock Is Up, What You Need To Know",
+        "Trump’s More Than 3,700 Trades Astonish Wall Street Insiders",
+        "Netflix AI INKubator Launch Raises New Questions For NFLX Valuation",
+        "Google's YouTube Revenue May Be Bigger Than Wall Street Thought, Topping Netflix",
+        "Nvidia Stock Is the King of the AI Castle. History Tells Us It Will Fall Hard and Its Replacement Will Emerge From Thin Air."
+      ]
+    }
+  ],
+  "timestamp": "2026-05-15 22:12:04"
+}
