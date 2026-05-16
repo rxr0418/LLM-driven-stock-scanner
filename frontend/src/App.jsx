@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import "./App.css";
 
-const API = "http://localhost:8000/api";
+const API = "https://llm-driven-stock-scanner-production.up.railway.app/api";
 
 // ─────────────────────────────────────────────────────────────
 // Sub-components
