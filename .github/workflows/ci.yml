@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Check imports
+        run: |
+          cd backend
+          python -c "import fastapi, uvicorn, anthropic, yfinance, pandas, numpy; print('All imports OK')"
+
+      - name: Validate API structure
+        run: |
+          cd backend
+          python -c "
+          from api import app
+          routes = [r.path for r in app.routes]
+          required = ['/api/health', '/api/regime', '/api/scan', '/api/latest']
+          for r in required:
+              assert r in routes, f'Missing route: {r}'
+          print('All required routes present:', required)
+          "

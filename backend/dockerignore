@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local data files
+regime_history.json
+results/
+
+# Development files
+.env
+*.log
+
+# Git
+.git/
+.gitignore
