@@ -94,6 +94,9 @@ class ScanResponse(BaseModel):
     short_candidates: list
     timestamp: str
     has_llm_analysis: bool = False
+    vix: float = 0.0
+    realized_vol: float = 0.0
+    trend_strength: float = 0.0
 
 
 # ─────────────────────────────────────────────────────────────
@@ -139,8 +142,16 @@ def get_scan(top_n: int = 10):
 
     if "error" in scan_results:
         raise HTTPException(status_code=500, detail=scan_results["error"])
+    print(f"[api] regime_result keys: {list(regime_result.keys())}")
+    print(f"[api] vix={regime_result.get('vix')}, rvol={regime_result.get('realized_vol')}")
 
-    return {**scan_results, "has_llm_analysis": False}
+    return {
+    **scan_results,
+    "vix":            regime_result["vix"],
+    "realized_vol":   regime_result["realized_vol"],
+    "trend_strength": regime_result["trend_strength"],
+    "has_llm_analysis": False,
+    }
 
 
 @app.post("/api/scan/full", response_model=ScanResponse)
