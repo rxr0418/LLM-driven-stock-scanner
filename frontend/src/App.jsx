@@ -5,10 +5,101 @@ import "./App.css";
 const API = "https://llm-driven-stock-scanner-production.up.railway.app/api";
 
 // ─────────────────────────────────────────────────────────────
+// Translations
+// ─────────────────────────────────────────────────────────────
+
+const T = {
+  en: {
+    title:          "Stock Scanner",
+    subtitle:       "Regime-adaptive · LLM-filtered",
+    lastRun:        "Last run",
+    topNLabel:      "Top N per side",
+    factorScan:     "⚡ Factor Scan",
+    fullScan:       "✦ Full Scan (LLM included)",
+    scanning:       "Scanning…",
+    analyzing:      "Analyzing…",
+    longTitle:      "▲ Long Candidates",
+    shortTitle:     "▼ Short Candidates",
+    noCandidates:   "No candidates",
+    noScanTitle:    "No scan data",
+    noScanHint:     'Click "Factor Scan" for a quick scan, or "Full Scan (LLM included)" for complete analysis.',
+    loadingLlm:     "Running LLM analysis… (~30–60s)",
+    loadingData:    "Fetching data…",
+    recentNews:     "Recent news",
+    factorOnly:     "Factor signal only",
+    vix:            "VIX",
+    realizedVol:    "Realized Vol",
+    trend:          "Trend",
+    factors:        "Factors",
+    scanFailed:     "Scan failed",
+    fullScanFailed: "Full scan failed",
+    regime: {
+      TRENDING: "TRENDING",
+      VOLATILE: "VOLATILE",
+      NEUTRAL:  "NEUTRAL",
+    },
+    signal: {
+      STRONG_BUY: "STRONG BUY",
+      BUY:        "BUY",
+      NEUTRAL:    "NEUTRAL",
+      AVOID:      "AVOID",
+    },
+  },
+  zh: {
+    title:          "股票扫描器",
+    subtitle:       "市场环境自适应 · LLM过滤",
+    lastRun:        "上次运行",
+    topNLabel:      "每侧显示数量",
+    factorScan:     "⚡ 因子扫描",
+    fullScan:       "✦ 完整扫描（含AI大模型分析）",
+    scanning:       "扫描中…",
+    analyzing:      "分析中…",
+    longTitle:      "▲ 做多候选",
+    shortTitle:     "▼ 做空候选",
+    noCandidates:   "暂无候选",
+    noScanTitle:    "暂无扫描数据",
+    noScanHint:     '点击"因子扫描"快速扫描，或"完整扫描"获取LLM分析。',
+    loadingLlm:     "AI分析中… (约30-60秒)",
+    loadingData:    "数据加载中…",
+    recentNews:     "相关新闻",
+    factorOnly:     "仅因子信号",
+    vix:            "恐慌指数",
+    realizedVol:    "已实现波动率",
+    trend:          "趋势强度",
+    factors:        "使用因子",
+    scanFailed:     "扫描失败",
+    fullScanFailed: "完整扫描失败",
+    regime: {
+      TRENDING: "趋势市",
+      VOLATILE: "震荡市",
+      NEUTRAL:  "中性",
+    },
+    signal: {
+      STRONG_BUY: "强烈买入",
+      BUY:        "买入",
+      NEUTRAL:    "中性",
+      AVOID:      "回避",
+    },
+  },
+};
+
+// ─────────────────────────────────────────────────────────────
 // Sub-components
 // ─────────────────────────────────────────────────────────────
 
-function RegimeBadge({ regime }) {
+function LangToggle({ lang, setLang }) {
+  return (
+    <button
+      className="lang-toggle"
+      onClick={() => setLang(lang === "en" ? "zh" : "en")}
+      title="Switch language / 切换语言"
+    >
+      {lang === "en" ? "中文" : "EN"}
+    </button>
+  );
+}
+
+function RegimeBadge({ regime, t }) {
   const colors = {
     TRENDING: "badge-trending",
     VOLATILE: "badge-volatile",
@@ -16,12 +107,12 @@ function RegimeBadge({ regime }) {
   };
   return (
     <span className={`badge ${colors[regime] || "badge-neutral"}`}>
-      {regime}
+      {t.regime[regime] || regime}
     </span>
   );
 }
 
-function SignalBadge({ signal }) {
+function SignalBadge({ signal, t }) {
   const colors = {
     STRONG_BUY: "signal-strong-buy",
     BUY:        "signal-buy",
@@ -30,7 +121,7 @@ function SignalBadge({ signal }) {
   };
   return (
     <span className={`signal ${colors[signal] || "signal-neutral"}`}>
-      {signal || "—"}
+      {t.signal[signal] || signal || "—"}
     </span>
   );
 }
@@ -51,7 +142,7 @@ function ConfidenceBar({ value }) {
   );
 }
 
-function StockCard({ item, side }) {
+function StockCard({ item, side, t }) {
   const [expanded, setExpanded] = useState(false);
   const hasLlm = item.signal && item.signal !== undefined;
 
@@ -63,11 +154,13 @@ function StockCard({ item, side }) {
       <div className="card-header">
         <div className="card-left">
           <span className="ticker">{item.ticker}</span>
-          {hasLlm && <SignalBadge signal={item.signal} />}
+          {hasLlm && <SignalBadge signal={item.signal} t={t} />}
         </div>
         <div className="card-right">
           <span className="score-label">score</span>
-          <span className="score-value">{item.score?.toFixed(3) ?? item.factor_score?.toFixed(3)}</span>
+          <span className="score-value">
+            {item.score?.toFixed(3) ?? item.factor_score?.toFixed(3)}
+          </span>
         </div>
       </div>
 
@@ -82,9 +175,9 @@ function StockCard({ item, side }) {
           )}
           {expanded && item.news_titles && item.news_titles.length > 0 && (
             <div className="news-list">
-              <p className="news-heading">Recent news</p>
-              {item.news_titles.map((t, i) => (
-                <p key={i} className="news-item">· {t}</p>
+              <p className="news-heading">{t.recentNews}</p>
+              {item.news_titles.map((title, i) => (
+                <p key={i} className="news-item">· {title}</p>
               ))}
             </div>
           )}
@@ -92,40 +185,42 @@ function StockCard({ item, side }) {
       )}
 
       {!hasLlm && (
-        <p className="no-llm">Factor signal only</p>
+        <p className="no-llm">{t.factorOnly}</p>
       )}
     </div>
   );
 }
 
-function RegimePanel({ regime }) {
+function RegimePanel({ regime, t }) {
   if (!regime) return null;
   return (
     <div className="regime-panel">
       <div className="regime-row">
-        <RegimeBadge regime={regime.regime} />
+        <RegimeBadge regime={regime.regime} t={t} />
         <span className="regime-desc">{regime.description}</span>
       </div>
       <div className="regime-stats">
         <div className="stat">
-          <span className="stat-label">VIX</span>
+          <span className="stat-label">{t.vix}</span>
           <span className="stat-value">{regime.vix ?? "—"}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">Realized Vol</span>
+          <span className="stat-label">{t.realizedVol}</span>
           <span className="stat-value">
             {regime.realized_vol ? (regime.realized_vol * 100).toFixed(1) + "%" : "—"}
           </span>
         </div>
         <div className="stat">
-          <span className="stat-label">Trend</span>
+          <span className="stat-label">{t.trend}</span>
           <span className="stat-value">
             {regime.trend_strength ? (regime.trend_strength * 100).toFixed(0) + "%" : "—"}
           </span>
         </div>
         <div className="stat">
-          <span className="stat-label">Factors</span>
-          <span className="stat-value factors">{regime.recommended_factors?.join(", ")}</span>
+          <span className="stat-label">{t.factors}</span>
+          <span className="stat-value factors">
+            {regime.recommended_factors?.join(", ")}
+          </span>
         </div>
       </div>
     </div>
@@ -137,16 +232,18 @@ function RegimePanel({ regime }) {
 // ─────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [regime, setRegime]       = useState(null);
-  const [scanData, setScanData]   = useState(null);
-  const [loading, setLoading]     = useState(false);
+  const [lang, setLang]             = useState("en");
+  const [regime, setRegime]         = useState(null);
+  const [scanData, setScanData]     = useState(null);
+  const [loading, setLoading]       = useState(false);
   const [llmLoading, setLlmLoading] = useState(false);
-  const [error, setError]         = useState(null);
-  const [lastRun, setLastRun]     = useState(null);
-  const [hasLlm, setHasLlm]       = useState(false);
-  const [topN, setTopN]           = useState(5);
+  const [error, setError]           = useState(null);
+  const [lastRun, setLastRun]       = useState(null);
+  const [hasLlm, setHasLlm]         = useState(false);
+  const [topN, setTopN]             = useState(5);
 
-  // Load latest saved result on mount
+  const t = T[lang];
+
   useEffect(() => {
     axios.get(`${API}/latest`)
       .then(r => {
@@ -154,7 +251,7 @@ export default function App() {
         setHasLlm(true);
         setLastRun(r.data.timestamp);
       })
-      .catch(() => {}); // no saved results yet, that's fine
+      .catch(() => {});
 
     axios.get(`${API}/regime`)
       .then(r => setRegime(r.data))
@@ -178,33 +275,30 @@ export default function App() {
       });
       setLastRun(r.data.timestamp);
     } catch (e) {
-      setError(e.response?.data?.detail || "Scan failed");
+      setError(e.response?.data?.detail || t.scanFailed);
     } finally {
       setLoading(false);
     }
-  }, [topN]);
+  }, [topN, t]);
 
   const runFullScan = useCallback(async () => {
     setLlmLoading(true);
     setError(null);
     try {
-      // First run factor scan for immediate feedback
       await runFactorScan();
-      // Then run full LLM scan
       const r = await axios.post(`${API}/scan/full?top_n=${topN}&save=true`);
       setScanData(r.data);
       setHasLlm(true);
       setLastRun(r.data.timestamp);
-      // Refresh regime
       const reg = await axios.get(`${API}/regime`);
       setRegime(reg.data);
     } catch (e) {
-      setError(e.response?.data?.detail || "Full scan failed");
+      setError(e.response?.data?.detail || t.fullScanFailed);
     } finally {
       setLlmLoading(false);
       setLoading(false);
     }
-  }, [topN, runFactorScan]);
+  }, [topN, t, runFactorScan]);
 
   const longList  = scanData?.long_watchlist  || scanData?.long_candidates  || [];
   const shortList = scanData?.short_watchlist || scanData?.short_candidates || [];
@@ -215,21 +309,22 @@ export default function App() {
       <header className="header">
         <div className="header-left">
           <h1 className="title">
-            <span className="title-accent">◈</span> Stock Scanner
+            <span className="title-accent">◈</span> {t.title}
           </h1>
-          <p className="subtitle">Regime-adaptive · LLM-filtered</p>
+          <p className="subtitle">{t.subtitle}</p>
         </div>
         <div className="header-right">
           {lastRun && (
-            <span className="last-run">Last run: {lastRun}</span>
+            <span className="last-run">{t.lastRun}: {lastRun}</span>
           )}
+          <LangToggle lang={lang} setLang={setLang} />
         </div>
       </header>
 
       {/* Controls */}
       <div className="controls">
         <div className="control-group">
-          <label className="control-label">Top N per side</label>
+          <label className="control-label">{t.topNLabel}</label>
           <select
             className="control-select"
             value={topN}
@@ -246,7 +341,7 @@ export default function App() {
           onClick={runFactorScan}
           disabled={loading || llmLoading}
         >
-          {loading ? "Scanning…" : "⚡ Factor Scan"}
+          {loading ? t.scanning : t.factorScan}
         </button>
 
         <button
@@ -254,7 +349,7 @@ export default function App() {
           onClick={runFullScan}
           disabled={loading || llmLoading}
         >
-          {llmLoading ? "Analyzing…" : "✦ Full Scan (LLM included)"}
+          {llmLoading ? t.analyzing : t.fullScan}
         </button>
       </div>
 
@@ -264,47 +359,37 @@ export default function App() {
       )}
 
       {/* Regime */}
-      <RegimePanel regime={regime} />
+      <RegimePanel regime={regime} t={t} />
 
       {/* Watchlist */}
       {scanData && (
         <div className="watchlist">
-          {/* Long */}
           <div className="watchlist-col">
             <div className="col-header long-header">
-              <span className="col-title">▲ Long Candidates</span>
+              <span className="col-title">{t.longTitle}</span>
               <span className="col-count">{longList.length}</span>
             </div>
             <div className="card-list">
               {longList.map(item => (
-                <StockCard
-                  key={item.ticker}
-                  item={item}
-                  side="long"
-                />
+                <StockCard key={item.ticker} item={item} side="long" t={t} />
               ))}
               {longList.length === 0 && (
-                <p className="empty">No candidates</p>
+                <p className="empty">{t.noCandidates}</p>
               )}
             </div>
           </div>
 
-          {/* Short */}
           <div className="watchlist-col">
             <div className="col-header short-header">
-              <span className="col-title">▼ Short Candidates</span>
+              <span className="col-title">{t.shortTitle}</span>
               <span className="col-count">{shortList.length}</span>
             </div>
             <div className="card-list">
               {shortList.map(item => (
-                <StockCard
-                  key={item.ticker}
-                  item={item}
-                  side="short"
-                />
+                <StockCard key={item.ticker} item={item} side="short" t={t} />
               ))}
               {shortList.length === 0 && (
-                <p className="empty">No candidates</p>
+                <p className="empty">{t.noCandidates}</p>
               )}
             </div>
           </div>
@@ -314,16 +399,16 @@ export default function App() {
       {/* Empty state */}
       {!scanData && !loading && !llmLoading && (
         <div className="empty-state">
-          <p className="empty-title">No scan data</p>
-          <p className="empty-hint">Click "Factor Scan" for a quick scan, or "Full Scan + LLM" for complete analysis.</p>
+          <p className="empty-title">{t.noScanTitle}</p>
+          <p className="empty-hint">{t.noScanHint}</p>
         </div>
       )}
 
-      {/* Loading overlay */}
+      {/* Loading */}
       {(loading || llmLoading) && !scanData && (
         <div className="loading-state">
           <div className="spinner" />
-          <p>{llmLoading ? "Running LLM analysis… (~30–60s)" : "Fetching data…"}</p>
+          <p>{llmLoading ? t.loadingLlm : t.loadingData}</p>
         </div>
       )}
     </div>

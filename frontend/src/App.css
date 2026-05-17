@@ -14,9 +14,9 @@
   --border:      #1e2530;
   --border-light:#2a3444;
 
-  --text:        #f9f9f9;   
-  --text-muted:  #94a3b8;  
-  --text-dim:    #64748b;   
+  --text:        #e2e8f0;
+  --text-muted:  #64748b;
+  --text-dim:    #334155;
 
   --green:       #22c55e;
   --green-dim:   #14532d;
@@ -162,26 +162,34 @@ body {
   color: var(--accent);
 }
 
-.btn-active {
-  background: var(--accent);
+.btn-primary {
+  background: var(--accent-dim);
   border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent);
   color: var(--bg);
-  font-weight: 600;
 }
 
-.btn-active:hover:not(:disabled) {
-  opacity: 0.85;
-}
-
-
-.llm-badge {
+.lang-toggle {
   font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--green);
-  padding: 4px 10px;
-  border: 1px solid var(--green-dim);
-  border-radius: 20px;
-  background: rgba(34, 197, 94, 0.05);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0.5px;
+}
+
+.lang-toggle:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
 }
 
 /* ── Regime panel ──────────────────────────────────────────── */
