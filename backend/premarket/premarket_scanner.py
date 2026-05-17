@@ -17,10 +17,8 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
-
-from premarket_data     import run_premarket_data_fetch
-from premarket_catalyst import analyze_candidates_batch
-
+from premarket.premarket_data     import run_premarket_data_fetch
+from premarket.premarket_catalyst import analyze_candidates_batch
 
 # ─────────────────────────────────────────────────────────────
 # Scoring and ranking
