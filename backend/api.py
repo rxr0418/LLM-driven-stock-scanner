@@ -34,6 +34,10 @@ from swing.scanner     import run_scan
 from swing.llm_analyst import analyze_watchlist
 from swing.main        import stable_regime, save_results
 
+from premarket.premarket_data     import run_premarket_data_fetch
+from premarket.premarket_catalyst import analyze_candidates_batch
+from premarket.premarket_scanner  import run_premarket_scan, rank_candidates
+
 
 # ─────────────────────────────────────────────────────────────
 # App setup
@@ -263,6 +267,60 @@ def get_historical_scan(scan_id: str):
 def get_universe():
     """Return the current stock universe."""
     return {"tickers": UNIVERSE, "count": len(UNIVERSE)}
+
+@app.get("/api/premarket/scan")
+def get_premarket_scan(
+    min_change: float = 5.0,
+    max_change: float = 40.0,
+    min_rvol:   float = 2.0,
+    min_volume: int   = 100_000,
+):
+    """
+    Run premarket small-cap scanner without LLM.
+    Best run between 4:00-9:30 AM ET.
+    """
+    candidates = run_premarket_data_fetch(
+        min_premarket_change=min_change,
+        max_premarket_change=max_change,
+        min_rvol=min_rvol,
+        min_volume=min_volume,
+    )
+    ranked = rank_candidates(candidates)
+    return {
+        "candidates":  ranked,
+        "count":       len(ranked),
+        "has_llm":     False,
+        "timestamp":   datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+@app.post("/api/premarket/scan/full")
+def get_premarket_full_scan(
+    min_change: float = 5.0,
+    max_change: float = 40.0,
+    min_rvol:   float = 2.0,
+    min_volume: int   = 100_000,
+    lang:       str   = "en",
+):
+    """
+    Run premarket scanner with LLM catalyst analysis.
+    Best run between 4:00-9:30 AM ET.
+    """
+    candidates = run_premarket_data_fetch(
+        min_premarket_change=min_change,
+        max_premarket_change=max_change,
+        min_rvol=min_rvol,
+        min_volume=min_volume,
+    )
+    if candidates:
+        candidates = analyze_candidates_batch(candidates, lang=lang)
+    ranked = rank_candidates(candidates)
+    return {
+        "candidates":  ranked,
+        "count":       len(ranked),
+        "has_llm":     True,
+        "timestamp":   datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
 
 
 # ─────────────────────────────────────────────────────────────
