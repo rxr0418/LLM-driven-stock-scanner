@@ -28,11 +28,11 @@ from pydantic import BaseModel
 import sys
 sys.path.append(str(Path(__file__).parent))
 
-from data        import fetch_price_data, fetch_news_batch, UNIVERSE
-from regime      import detect_regime
-from scanner     import run_scan
-from llm_analyst import analyze_watchlist
-from main        import stable_regime, save_results
+from swing.data        import fetch_price_data, fetch_news_batch, UNIVERSE
+from swing.regime      import detect_regime
+from swing.scanner     import run_scan
+from swing.llm_analyst import analyze_watchlist
+from swing.main        import stable_regime, save_results
 
 
 # ─────────────────────────────────────────────────────────────

@@ -17,8 +17,12 @@ Every day, before market open:
 
 ---
 
-## Sample Output (2026-05-15)
-## Dashboard
+## Live Demo
+
+| | URL |
+|--|--|
+| Dashboard | https://llm-driven-stock-scanner.vercel.app |
+| API Docs  | https://llm-driven-stock-scanner-production.up.railway.app/docs |
 
 ![Dashboard](screenshots/dashboard.png)
 

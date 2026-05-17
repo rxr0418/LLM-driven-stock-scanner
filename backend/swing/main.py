@@ -26,10 +26,10 @@ from pathlib import Path
 warnings.filterwarnings("ignore")
 
 # ── Local modules ─────────────────────────────────────────────
-from data       import fetch_price_data, fetch_news_batch, UNIVERSE
-from regime     import detect_regime
-from scanner    import run_scan
-from llm_analyst import analyze_watchlist, print_watchlist
+from swing.data       import fetch_price_data, fetch_news_batch, UNIVERSE
+from swing.regime     import detect_regime
+from swing.scanner    import run_scan
+from swing.llm_analyst import analyze_watchlist
 
 
 # ─────────────────────────────────────────────────────────────
