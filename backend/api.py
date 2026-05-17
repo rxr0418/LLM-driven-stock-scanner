@@ -155,7 +155,7 @@ def get_scan(top_n: int = 10):
 
 
 @app.post("/api/scan/full", response_model=ScanResponse)
-def get_full_scan(top_n: int = 10, save: bool = True):
+def get_full_scan(top_n: int = 10, save: bool = True, lang: str = "en"):
     """
     Run full scan with LLM news analysis.
     Slower — makes Claude API calls for each candidate.
@@ -182,7 +182,7 @@ def get_full_scan(top_n: int = 10, save: bool = True):
     news_data = fetch_news_batch(all_tickers, max_articles=5)
 
     # LLM analysis
-    watchlist = analyze_watchlist(scan_results, news_data, top_n=top_n)
+    watchlist = analyze_watchlist(scan_results, news_data, top_n=top_n, lang=lang)
 
     # Save to disk
     if save:

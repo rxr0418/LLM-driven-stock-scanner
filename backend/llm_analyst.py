@@ -110,6 +110,7 @@ def analyze_stock(
     signal_direction: str,
     regime: str,
     news_articles: list,
+    lang: str = "en",
 ) -> dict:
     """
     Ask Claude to analyze whether recent news supports the factor signal.
@@ -141,7 +142,13 @@ def analyze_stock(
     else:
         factor_type = "combined momentum + reversal + volume"
 
-    prompt = f"""You are a quantitative analyst reviewing a stock scanner signal. \
+    lang_instruction = (
+    "请用中文回答，保持专业量化分析风格，reason控制在20个字以内。"
+    if lang == "zh"
+    else "Answer in English. Keep reason under 20 words."
+)
+
+    prompt = f"""{lang_instruction}You are a quantitative analyst reviewing a stock scanner signal. \
 Your job is to determine whether recent news supports or contradicts the factor-based signal, \
 and produce a final trading recommendation.
 
@@ -233,6 +240,7 @@ def analyze_watchlist(
     scan_results: dict,
     news_data: dict,
     top_n: int = 10,
+    lang: str = "en",
 ) -> dict:
     """
     Run LLM analysis on the top long and short candidates.
@@ -258,7 +266,7 @@ def analyze_watchlist(
         score  = item["score"]
         news   = news_data.get(ticker, [])
         print(f"  → {ticker} (score={score:.4f})", end=" ")
-        result = analyze_stock(client, ticker, score, "LONG", regime, news)
+        result = analyze_stock(client, ticker, score, "LONG", regime, news, lang=lang)
         print(f"| {result['signal']} ({result['confidence']}%)")
         long_watchlist.append(result)
 
@@ -269,7 +277,7 @@ def analyze_watchlist(
         score  = item["score"]
         news   = news_data.get(ticker, [])
         print(f"  → {ticker} (score={score:.4f})", end=" ")
-        result = analyze_stock(client, ticker, score, "SHORT", regime, news)
+        result = analyze_stock(client, ticker, score, "SHORT", regime, news, lang=lang)
         print(f"| {result['signal']} ({result['confidence']}%)")
         short_watchlist.append(result)
 

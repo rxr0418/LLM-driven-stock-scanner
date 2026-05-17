@@ -263,7 +263,7 @@ export default function App() {
     setError(null);
     setHasLlm(false);
     try {
-      const r = await axios.get(`${API}/scan?top_n=${topN}`);
+      const r = await axios.post(`${API}/scan/full?top_n=${topN}&save=true&lang=${lang}`);
       setScanData(r.data);
       setRegime({
         regime:              r.data.regime,
