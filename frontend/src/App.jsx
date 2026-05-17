@@ -245,18 +245,10 @@ export default function App() {
   const t = T[lang];
 
   useEffect(() => {
-    axios.get(`${API}/latest`)
-      .then(r => {
-        setScanData(r.data);
-        setHasLlm(true);
-        setLastRun(r.data.timestamp);
-      })
-      .catch(() => {});
-
-    axios.get(`${API}/regime`)
-      .then(r => setRegime(r.data))
-      .catch(() => {});
-  }, []);
+  axios.get(`${API}/regime`)
+    .then(r => setRegime(r.data))
+    .catch(() => {});
+}, []);
 
   const runFactorScan = useCallback(async () => {
     setLoading(true);
