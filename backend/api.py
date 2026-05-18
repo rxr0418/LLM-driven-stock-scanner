@@ -270,56 +270,89 @@ def get_universe():
 
 @app.get("/api/premarket/scan")
 def get_premarket_scan(
-    min_change: float = 5.0,
-    max_change: float = 40.0,
-    min_rvol:   float = 2.0,
-    min_volume: int   = 100_000,
+    # 股票基本条件
+    min_price:    float = 1.0,
+    max_price:    float = 20.0,
+    max_market_cap: float = 3e8,
+    max_float:    float = 1e9,    # 默认不设限用很大的数
+    # 盘前条件
+    min_change:   float = 4.0,
+    max_change:   float = 40.0,
+    min_pm_volume: int  = 200_000,
+    min_pm_amount: float = 1e6,   # 盘前成交额，默认100万
+    min_rvol:     float = 2.0,
+    # 盘中条件
+    min_day_change: float = 0.0,  # 单日涨幅，默认不限
+    min_day_volume: int   = 0,    # 当日成交量，默认不限
+    # 排序
+    sort_by:      str   = "change",  # change/rvol/volume/amount
+    # 方向
+    direction:    str   = "both",    # both/up/down
 ):
-    """
-    Run premarket small-cap scanner without LLM.
-    Best run between 4:00-9:30 AM ET.
-    """
     candidates = run_premarket_data_fetch(
+        min_price=min_price,
+        max_price=max_price,
+        max_market_cap=max_market_cap,
+        max_float=max_float,
         min_premarket_change=min_change,
         max_premarket_change=max_change,
+        min_volume=min_pm_volume,
+        min_pm_amount=min_pm_amount,
         min_rvol=min_rvol,
-        min_volume=min_volume,
+        min_day_change=min_day_change,
+        min_day_volume=min_day_volume,
+        direction=direction,
+        sort_by=sort_by,
     )
-    ranked = rank_candidates(candidates)
+    ranked = rank_candidates(candidates, sort_by=sort_by)
     return {
-        "candidates":  ranked,
-        "count":       len(ranked),
-        "has_llm":     False,
-        "timestamp":   datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "candidates": ranked,
+        "count":      len(ranked),
+        "has_llm":    False,
+        "timestamp":  datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
 
 @app.post("/api/premarket/scan/full")
 def get_premarket_full_scan(
-    min_change: float = 5.0,
-    max_change: float = 40.0,
-    min_rvol:   float = 2.0,
-    min_volume: int   = 100_000,
-    lang:       str   = "en",
+    min_price:     float = 1.0,
+    max_price:     float = 20.0,
+    max_market_cap: float = 3e8,
+    max_float:     float = 1e9,
+    min_change:    float = 4.0,
+    max_change:    float = 40.0,
+    min_pm_volume: int   = 200_000,
+    min_pm_amount: float = 1e6,
+    min_rvol:      float = 2.0,
+    min_day_change: float = 0.0,
+    min_day_volume: int   = 0,
+    sort_by:       str   = "change",
+    direction:     str   = "both",
+    lang:          str   = "en",
 ):
-    """
-    Run premarket scanner with LLM catalyst analysis.
-    Best run between 4:00-9:30 AM ET.
-    """
     candidates = run_premarket_data_fetch(
+        min_price=min_price,
+        max_price=max_price,
+        max_market_cap=max_market_cap,
+        max_float=max_float,
         min_premarket_change=min_change,
         max_premarket_change=max_change,
+        min_volume=min_pm_volume,
+        min_pm_amount=min_pm_amount,
         min_rvol=min_rvol,
-        min_volume=min_volume,
+        min_day_change=min_day_change,
+        min_day_volume=min_day_volume,
+        direction=direction,
+        sort_by=sort_by,
     )
     if candidates:
         candidates = analyze_candidates_batch(candidates, lang=lang)
-    ranked = rank_candidates(candidates)
+    ranked = rank_candidates(candidates, sort_by=sort_by)
     return {
-        "candidates":  ranked,
-        "count":       len(ranked),
-        "has_llm":     True,
-        "timestamp":   datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "candidates": ranked,
+        "count":      len(ranked),
+        "has_llm":    True,
+        "timestamp":  datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
 

@@ -42,19 +42,24 @@ def score_candidate(candidate: dict) -> float:
     return round(rvol * strength * conf, 3)
 
 
-def rank_candidates(candidates: list) -> list:
-    """Sort candidates by signal priority then composite score."""
+def rank_candidates(candidates: list, sort_by: str = "change") -> list:
+    """Sort candidates by user-selected sort key."""
     for c in candidates:
         c["composite_score"] = score_candidate(c)
 
-    return sorted(
-        candidates,
-        key=lambda x: (
+    key_map = {
+        "change": lambda x: -abs(x.get("premarket_change_pct", 0)),
+        "rvol":   lambda x: -x.get("rvol", 0),
+        "volume": lambda x: -x.get("premarket_volume", 0),
+        "amount": lambda x: -x.get("pm_amount", 0),
+        "score":  lambda x: (
             SIGNAL_RANK.get(x.get("signal", "AVOID"), 99),
             -x["composite_score"],
-        )
-    )
+        ),
+    }
 
+    sort_key = key_map.get(sort_by, key_map["change"])
+    return sorted(candidates, key=sort_key)
 
 # ─────────────────────────────────────────────────────────────
 # Output formatting
