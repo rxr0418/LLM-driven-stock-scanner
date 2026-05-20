@@ -24,6 +24,7 @@ from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+
 # ── Local modules ─────────────────────────────────────────────
 import sys
 sys.path.append(str(Path(__file__).parent))
@@ -37,7 +38,8 @@ from swing.main        import stable_regime, save_results
 from premarket.premarket_data     import run_premarket_data_fetch
 from premarket.premarket_catalyst import analyze_candidates_batch
 from premarket.premarket_scanner  import run_premarket_scan, rank_candidates
-from premarket.premarket_scanner import log_scan_result
+
+from database import log_scan_results
 
 # ─────────────────────────────────────────────────────────────
 # App setup
@@ -305,7 +307,10 @@ def get_premarket_scan(
         sort_by=sort_by,
     )
     ranked = rank_candidates(candidates, sort_by=sort_by)
-    log_scan_result(ranked)
+    try:
+        log_scan_results(ranked)
+    except Exception as e:
+        print(f"[api] DB logging failed: {e}")
     return {
         "candidates": ranked,
         "count":      len(ranked),
@@ -349,6 +354,10 @@ def get_premarket_full_scan(
     if candidates:
         candidates = analyze_candidates_batch(candidates, lang=lang)
     ranked = rank_candidates(candidates, sort_by=sort_by)
+    try:
+        log_scan_results(ranked)
+    except Exception as e:
+        print(f"[api] DB logging failed: {e}")
     return {
         "candidates": ranked,
         "count":      len(ranked),

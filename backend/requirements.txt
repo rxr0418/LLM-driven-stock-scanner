@@ -6,3 +6,4 @@ yfinance
 pandas
 numpy
 finnhub-python
+psycopg2-binary
