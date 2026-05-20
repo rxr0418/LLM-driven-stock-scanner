@@ -61,6 +61,41 @@ def rank_candidates(candidates: list, sort_by: str = "change") -> list:
     sort_key = key_map.get(sort_by, key_map["change"])
     return sorted(candidates, key=sort_key)
 
+def log_scan_result(candidates: list) -> None:
+    """Log scan results to history file for future RAG use."""
+    from pathlib import Path
+    import json
+
+    log_file = Path(__file__).parent / "premarket_history.json"
+    history  = json.loads(log_file.read_text()) if log_file.exists() else []
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    time  = datetime.now().strftime("%H:%M ET")
+
+    for c in candidates:
+        history.append({
+            "date":            today,
+            "time":            time,
+            "ticker":          c.get("ticker"),
+            "change_pct":      c.get("premarket_change_pct"),
+            "rvol":            c.get("rvol"),
+            "volume":          c.get("premarket_volume"),
+            "market_cap":      c.get("market_cap"),
+            "float":           c.get("float"),
+            "signal":          c.get("signal", ""),
+            "confidence":      c.get("confidence", 0),
+            "catalyst":        c.get("catalyst_type", "UNKNOWN"),
+            "reason":          c.get("reason", ""),
+            "news_headline":   c["news"][0]["headline"] if c.get("news") else "",
+            # Fill in later manually or automatically
+            "open_return":     None,
+            "day_return":      None,
+            "outcome":         None,
+        })
+
+    log_file.write_text(json.dumps(history, indent=2, ensure_ascii=False))
+    print(f"[scanner] Logged {len(candidates)} results to premarket_history.json")
+
 # ─────────────────────────────────────────────────────────────
 # Output formatting
 # ─────────────────────────────────────────────────────────────

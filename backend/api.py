@@ -37,7 +37,7 @@ from swing.main        import stable_regime, save_results
 from premarket.premarket_data     import run_premarket_data_fetch
 from premarket.premarket_catalyst import analyze_candidates_batch
 from premarket.premarket_scanner  import run_premarket_scan, rank_candidates
-
+from premarket.premarket_scanner import log_scan_result
 
 # ─────────────────────────────────────────────────────────────
 # App setup
@@ -305,6 +305,7 @@ def get_premarket_scan(
         sort_by=sort_by,
     )
     ranked = rank_candidates(candidates, sort_by=sort_by)
+    log_scan_result(ranked)
     return {
         "candidates": ranked,
         "count":      len(ranked),
