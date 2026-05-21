@@ -471,7 +471,126 @@ def print_db_stats() -> None:
 
     except Exception as e:
         print(f"[db] print_db_stats failed: {e}")
+# ─────────────────────────────────────────────────────────────
+# 以下函数加到你现有的 database.py 末尾
+# ─────────────────────────────────────────────────────────────
 
+def log_swing_results(watchlist: dict) -> int:
+    """
+    Log swing trade scan results to swing_results table.
+
+    Args:
+        watchlist: output of analyze_watchlist() or run_scan()
+                   expects keys: regime, factors_used,
+                   long_watchlist / long_candidates,
+                   short_watchlist / short_candidates
+
+    Returns:
+        number of records inserted
+    """
+    conn = get_connection()
+    cur  = conn.cursor()
+
+    today    = date.today().strftime("%Y-%m-%d")
+    regime   = watchlist.get("regime", "")
+    factors  = watchlist.get("factors_used", [])
+    inserted = 0
+
+    # 支持有 LLM 分析（long_watchlist）和没有（long_candidates）两种格式
+    long_items  = watchlist.get("long_watchlist",  watchlist.get("long_candidates",  []))
+    short_items = watchlist.get("short_watchlist", watchlist.get("short_candidates", []))
+
+    all_items = [
+        (item, "BUY")   for item in long_items
+    ] + [
+        (item, "SHORT") for item in short_items
+    ]
+
+    for item, default_signal in all_items:
+        ticker = item.get("ticker")
+        if not ticker:
+            continue
+
+        # 有 LLM 时用 LLM 的 signal，没有时用 BUY/SHORT
+        signal = item.get("signal") or item.get("news_alignment") or default_signal
+
+        try:
+            cur.execute("""
+                INSERT INTO swing_results (
+                    scan_date, ticker, signal, confidence,
+                    regime, factors_used, score,
+                    reason, news_alignment, risk_flag
+                ) VALUES (
+                    %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s
+                )
+                ON CONFLICT (scan_date, ticker) DO NOTHING
+            """, (
+                today,
+                ticker,
+                signal,
+                item.get("confidence"),
+                regime,
+                factors,
+                item.get("score"),
+                item.get("reason", ""),
+                item.get("news_alignment", ""),
+                item.get("risk_flag", ""),
+            ))
+            inserted += 1
+        except Exception as e:
+            print(f"[db] Failed to insert swing result for {ticker}: {e}")
+            continue
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    print(f"[db] Logged {inserted} swing results to Supabase")
+    return inserted
+
+
+def get_swing_stats_context(regime: str) -> str:
+    """
+    获取当前 regime 下的历史信号表现，注入 LLM prompt。
+
+    Returns:
+        formatted string，空字符串表示数据不够
+    """
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+
+        cur.execute("""
+            SELECT signal, sample_size,
+                   avg_return_5d, win_rate_5d,
+                   avg_return_10d, win_rate_10d
+            FROM swing_stats
+            WHERE regime = %s
+              AND sample_size >= 5
+            ORDER BY sample_size DESC
+        """, (regime,))
+
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        if not rows:
+            return ""
+
+        lines = [f"SWING HISTORICAL PERFORMANCE (regime={regime}):"]
+        for signal, n, r5, w5, r10, w10 in rows:
+            lines.append(
+                f"  {signal}: n={n}  "
+                f"5d avg={r5:+.1f}% win={w5:.0f}%  "
+                f"10d avg={r10:+.1f}% win={w10:.0f}%"
+            )
+        return "\n".join(lines)
+
+    except Exception as e:
+        print(f"[db] get_swing_stats_context failed: {e}")
+        return ""
 
 # ─────────────────────────────────────────────────────────────
 # Test connection

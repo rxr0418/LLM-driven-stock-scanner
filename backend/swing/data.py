@@ -6,7 +6,8 @@ Responsibilities:
   - Fetch recent news headlines via Yahoo Finance (free, no API key needed)
   - Define the stock universe to scan
 """
-
+import json
+from pathlib import Path
 import warnings
 from datetime import datetime, timedelta
 
@@ -22,23 +23,40 @@ warnings.filterwarnings("ignore")
 
 # S&P 500 representative sample across sectors
 # Replace with a full SP500 list for production use
-UNIVERSE = [
-    # Technology
-    "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "AMD", "TSLA",
-    "ORCL", "CRM", "ADBE", "INTC", "QCOM", "TXN", "AMAT",
-    # Financials
-    "JPM", "BAC", "GS", "MS", "WFC", "C", "BLK", "AXP",
-    # Healthcare
-    "JNJ", "PFE", "UNH", "ABBV", "MRK", "LLY", "TMO", "DHR",
-    # Energy
-    "XOM", "CVX", "COP", "SLB", "EOG",
-    # Consumer
-    "WMT", "HD", "MCD", "KO", "PEP", "NKE", "SBUX", "TGT",
-    # Industrials
-    "CAT", "BA", "GE", "HON", "UPS", "RTX",
-    # Communication
-    "DIS", "NFLX", "T", "VZ", "CMCSA",
-]
+# UNIVERSE = [
+#     # Technology
+#     "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "AMD", "TSLA",
+#     "ORCL", "CRM", "ADBE", "INTC", "QCOM", "TXN", "AMAT",
+#     # Financials
+#     "JPM", "BAC", "GS", "MS", "WFC", "C", "BLK", "AXP",
+#     # Healthcare
+#     "JNJ", "PFE", "UNH", "ABBV", "MRK", "LLY", "TMO", "DHR",
+#     # Energy
+#     "XOM", "CVX", "COP", "SLB", "EOG",
+#     # Consumer
+#     "WMT", "HD", "MCD", "KO", "PEP", "NKE", "SBUX", "TGT",
+#     # Industrials
+#     "CAT", "BA", "GE", "HON", "UPS", "RTX",
+#     # Communication
+#     "DIS", "NFLX", "T", "VZ", "CMCSA",
+# ]
+def load_sp500() -> list:
+    cache_file = Path(__file__).parent / "sp500_tickers.json"
+    if cache_file.exists():
+        with open(cache_file) as f:
+            tickers = json.load(f)
+        print(f"[swing] Loaded {len(tickers)} tickers from cache")
+        return tickers
+
+    # 下面这行只有缓存不存在时才跑，现在应该永远跑不到
+    tickers = pd.read_html(
+        "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+    )[0]["Symbol"].tolist()
+    tickers = [t.replace(".", "-") for t in tickers]
+    with open(cache_file, "w") as f:
+        json.dump(tickers, f)
+    return tickers
+UNIVERSE = load_sp500()
 
 
 # ─────────────────────────────────────────────────────────────

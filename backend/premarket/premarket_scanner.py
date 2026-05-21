@@ -12,7 +12,8 @@ Usage:
   python premarket_scanner.py --no-llm
   python premarket_scanner.py --lang zh
 """
-
+from premarket.premarket_data     import run_premarket_data_fetch
+from premarket.premarket_catalyst import analyze_candidates_batch
 import argparse
 import json
 from datetime import datetime

@@ -15,7 +15,9 @@ Usage:
   python main.py --no-llm           # skip LLM analysis (faster, no API cost)
   python main.py --save             # save results to JSON
 """
-
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent)) 
 import argparse
 import json
 import os
@@ -152,7 +154,7 @@ def save_results(watchlist: dict) -> str:
 # Main pipeline
 # ─────────────────────────────────────────────────────────────
 
-def run_pipeline(top_n: int = 10, use_llm: bool = True, save: bool = False) -> dict:
+def run_pipeline(top_n: int = 10, use_llm: bool = True, save: bool = False, save_db: bool = False) -> dict:
     """
     Run the full scanner pipeline end-to-end.
 
@@ -240,6 +242,14 @@ def run_pipeline(top_n: int = 10, use_llm: bool = True, save: bool = False) -> d
         filepath = save_results(watchlist)
         print(f"\n[main] Results saved to {filepath}")
 
+    # ── Save to Supabase ──────────────────────────────────────
+    if save_db:
+        try:
+            from database import log_swing_results
+            log_swing_results(watchlist)
+        except Exception as e:
+            print(f"[main] Supabase logging failed: {e}")
+
     return watchlist
 
 
@@ -263,6 +273,10 @@ def parse_args():
         "--save", action="store_true",
         help="Save results to results/watchlist_TIMESTAMP.json"
     )
+    parser.add_argument(
+        "--save-db", action="store_true",
+        help="Save results to Supabase for data accumulation"
+    )
     return parser.parse_args()
 
 
@@ -272,4 +286,5 @@ if __name__ == "__main__":
         top_n   = args.top,
         use_llm = not args.no_llm,
         save    = args.save,
+        save_db = args.save_db,
     )
