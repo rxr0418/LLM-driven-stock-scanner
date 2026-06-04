@@ -189,6 +189,7 @@ def run_premarket_scan(
     use_llm: bool = True,
     lang: str = "en",
     save: bool = False,
+    save_db: bool = False,
     min_change: float = 5.0,
     max_change: float = 40.0,
     min_rvol: float = 2.0,
@@ -238,10 +239,22 @@ def run_premarket_scan(
     # Step 4: Print
     print_results(candidates, has_llm=use_llm)
 
-    # Step 5: Save
+    # Step 5: Save to disk
     if save and candidates:
         filepath = save_results(candidates)
         print(f"\n[scanner] Results saved to {filepath}")
+
+    # Step 6: Save to Supabase
+    if save_db and candidates:
+        try:
+            from database import log_scan_results, store_news
+            log_scan_results(candidates)
+            for c in candidates:
+                if c.get("news"):
+                    store_news(c["ticker"], c["news"])
+            print(f"[scanner] Logged {len(candidates)} results to Supabase")
+        except Exception as e:
+            print(f"[scanner] Supabase logging failed: {e}")
 
     return candidates
 
@@ -257,6 +270,7 @@ if __name__ == "__main__":
     parser.add_argument("--no-llm",     action="store_true", help="Skip LLM analysis")
     parser.add_argument("--lang",       default="en",        help="Output language: en or zh")
     parser.add_argument("--save",       action="store_true", help="Save results to JSON")
+    parser.add_argument("--save-db",    action="store_true", help="Save results to Supabase")
     parser.add_argument("--min-change", type=float, default=5.0)
     parser.add_argument("--max-change", type=float, default=40.0)
     parser.add_argument("--min-rvol",   type=float, default=2.0)
@@ -268,6 +282,7 @@ if __name__ == "__main__":
         use_llm    = not args.no_llm,
         lang       = args.lang,
         save       = args.save,
+        save_db    = args.save_db,
         min_change = args.min_change,
         max_change = args.max_change,
         min_rvol   = args.min_rvol,

@@ -8,3 +8,5 @@ numpy
 finnhub-python
 psycopg2-binary
 aiohttp
+tavily-python
+lxml
