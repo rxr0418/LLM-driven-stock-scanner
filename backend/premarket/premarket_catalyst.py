@@ -18,6 +18,22 @@ import anthropic
 
 warnings.filterwarnings("ignore")
 
+# Langfuse tracing v4.x — uses direct trace/span API, no decorators needed
+try:
+    from langfuse import Langfuse
+    _langfuse = Langfuse(
+        public_key = os.environ.get("LANGFUSE_PUBLIC_KEY", ""),
+        secret_key = os.environ.get("LANGFUSE_SECRET_KEY", ""),
+        host       = os.environ.get("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
+    )
+    LANGFUSE_AVAILABLE = bool(
+        os.environ.get("LANGFUSE_PUBLIC_KEY") and
+        os.environ.get("LANGFUSE_SECRET_KEY")
+    )
+except Exception:
+    LANGFUSE_AVAILABLE = False
+    _langfuse = None
+
 # Import RAG functions as fallback if MCP unavailable
 try:
     import sys
@@ -203,6 +219,7 @@ def analyze_catalyst_agentic(
     if DB_AVAILABLE:
         stats = get_all_catalyst_stats()
         rules = get_relevant_knowledge(
+            catalyst_type="",
             keywords=["catalyst", "pump", "float", "fda", "earnings"]
         )
         if stats:
@@ -289,7 +306,7 @@ Use your tools to gather more information if needed, then provide your final JSO
                 raw = raw.replace("```json", "").replace("```", "").strip()
                 try:
                     result = json.loads(raw)
-                    return {
+                    final = {
                         "ticker":            ticker,
                         "catalyst_type":     result.get("catalyst_type",     "UNKNOWN"),
                         "catalyst_strength": result.get("catalyst_strength", "NONE"),
@@ -302,6 +319,29 @@ Use your tools to gather more information if needed, then provide your final JSO
                         "entry_timing":      result.get("entry_timing",      ""),
                         "exit_timing":       result.get("exit_timing",       ""),
                     }
+                    # Log to Langfuse
+                    if LANGFUSE_AVAILABLE and _langfuse:
+                        try:
+                            _langfuse.create_event(
+                                name     = f"catalyst_{ticker}",
+                                input    = {
+                                    "ticker": ticker,
+                                    "change": premarket_change_pct,
+                                    "rvol":   rvol,
+                                    "news":   [n.get("headline", "") for n in news_items[:3]],
+                                },
+                                output   = final,
+                                metadata = {
+                                    "signal":        final["signal"],
+                                    "catalyst_type": final["catalyst_type"],
+                                    "confidence":    final["confidence"],
+                                    "mcp_used":      [s["name"] for s in mcp_servers],
+                                },
+                            )
+                            _langfuse.flush()
+                        except Exception as lf_err:
+                            print(f"[langfuse] logging failed: {lf_err}")
+                    return final
                 except json.JSONDecodeError:
                     continue
 
@@ -366,3 +406,192 @@ def analyze_candidates_batch(
               f"[{result['catalyst_type']}] risk={result['manipulation_risk']}")
 
     return candidates
+
+
+# ─────────────────────────────────────────────────────────────
+# Mode-controlled analysis (for eval)
+# ─────────────────────────────────────────────────────────────
+
+def analyze_catalyst_with_mode(
+    ticker: str,
+    premarket_change_pct: float,
+    rvol: float,
+    float_shares: float,
+    market_cap: float,
+    news_items: list,
+    mode: str = "full",
+    lang: str = "en",
+    client: anthropic.Anthropic = None,
+) -> dict:
+    """
+    Mode-controlled version of analyze_catalyst_agentic for eval.
+
+    mode:
+      "baseline"  — no RAG, no MCP (plain prompt only)
+      "rag_only"  — RAG injected, no MCP
+      "full"      — RAG + Tavily MCP + Supabase MCP (production)
+    """
+    if client is None:
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        client  = anthropic.Anthropic(api_key=api_key)
+
+    # Format news
+    if news_items:
+        news_text = "\n".join(
+            f"  [{n.get('source', '?')}] {n.get('headline', '')}\n"
+            f"  {n.get('summary', '')[:150]}"
+            for n in news_items[:5]
+        )
+    else:
+        news_text = "  No news found from Finnhub in last 48 hours."
+
+    float_m      = float_shares / 1e6 if float_shares else 0
+    cap_m        = market_cap / 1e6 if market_cap else 0
+    now_et       = datetime.now()
+    open_et      = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+    mins_to_open = max(0, int((open_et - now_et).total_seconds() / 60))
+
+    # RAG context — only injected in rag_only and full modes
+    rag_context = ""
+    if mode in ("rag_only", "full") and DB_AVAILABLE:
+        stats = get_all_catalyst_stats()
+        rules = get_relevant_knowledge(
+            catalyst_type="",
+            keywords=["catalyst", "pump", "float", "fda", "earnings"]
+        )
+        if stats:
+            rag_context += f"\n{stats}\n"
+        if rules:
+            rag_context += f"\n{rules}\n"
+
+    # MCP servers — only in full mode
+    mcp_servers = []
+    if mode == "full":
+        mcp_servers = get_mcp_servers()
+
+    system_prompt = f"""You are an experienced small-cap day trader.
+Market opens in {mins_to_open} minutes. Analyze this premarket mover.
+
+CRITICAL DISTINCTIONS:
+- FDA APPROVAL (NDA/BLA granted) → STRONG catalyst
+- FDA Fast Track / Breakthrough → NOT approval, often overreacted
+- No news + tiny float + extreme RVOL → pump and dump, AVOID
+
+{FEW_SHOT_EXAMPLES}
+
+{CONFIDENCE_RUBRIC}
+
+{rag_context}
+
+Return ONLY this JSON (no markdown):
+{{
+  "catalyst_type": "one of: {', '.join(CATALYST_TYPES.keys())}",
+  "catalyst_strength": "STRONG or MODERATE or WEAK or NONE",
+  "proportionality": "OVER or FAIR or UNDER",
+  "manipulation_risk": "HIGH or MEDIUM or LOW",
+  "signal": "TRADE or WATCH or AVOID",
+  "confidence": integer 0-100,
+  "reason": "one sentence",
+  "risk": "one sentence",
+  "entry_timing": "one sentence",
+  "exit_timing": "one sentence"
+}}"""
+
+    user_message = f"""Analyze this stock:
+
+Ticker           : {ticker}
+Premarket change : {premarket_change_pct:+.1f}%
+RVOL             : {rvol:.1f}x
+Float            : {float_m:.1f}M shares
+Market cap       : ${cap_m:.0f}M
+Minutes to open  : {mins_to_open}
+
+News:
+{news_text}"""
+
+    # full mode: use the full agentic loop which handles MCP tool calls properly
+    if mode == "full":
+        result = analyze_catalyst_agentic(
+            ticker               = ticker,
+            premarket_change_pct = premarket_change_pct,
+            rvol                 = rvol,
+            float_shares         = float_shares,
+            market_cap           = market_cap,
+            news_items           = news_items,
+            lang                 = lang,
+            client               = client,
+        )
+        result["eval_mode"] = mode
+        return result
+
+    # baseline and rag_only: single call, no MCP loop needed
+    try:
+        response = client.messages.create(
+            model      = "claude-sonnet-4-6",
+            max_tokens = 600,
+            system     = system_prompt,
+            messages   = [{"role": "user", "content": user_message}],
+        )
+
+        for block in response.content:
+            if hasattr(block, "text"):
+                raw = block.text.strip()
+                raw = raw.replace("```json", "").replace("```", "").strip()
+                try:
+                    result = json.loads(raw)
+                    final = {
+                        "ticker":            ticker,
+                        "catalyst_type":     result.get("catalyst_type",     "UNKNOWN"),
+                        "catalyst_strength": result.get("catalyst_strength", "NONE"),
+                        "proportionality":   result.get("proportionality",   "FAIR"),
+                        "manipulation_risk": result.get("manipulation_risk", "MEDIUM"),
+                        "signal":            result.get("signal",            "AVOID"),
+                        "confidence":        result.get("confidence",        0),
+                        "reason":            result.get("reason",            ""),
+                        "risk":              result.get("risk",              ""),
+                        "entry_timing":      result.get("entry_timing",      ""),
+                        "exit_timing":       result.get("exit_timing",       ""),
+                        "eval_mode":         mode,
+                    }
+                    if LANGFUSE_AVAILABLE and _langfuse:
+                        try:
+                            _langfuse.create_event(
+                                name     = f"catalyst_{ticker}_{mode}",
+                                input    = {
+                                    "ticker": ticker,
+                                    "change": premarket_change_pct,
+                                    "rvol":   rvol,
+                                    "news":   [n.get("headline", "") for n in news_items[:3]],
+                                    "mode":   mode,
+                                },
+                                output   = final,
+                                metadata = {
+                                    "signal":        final["signal"],
+                                    "catalyst_type": final["catalyst_type"],
+                                    "confidence":    final["confidence"],
+                                },
+                            )
+                            _langfuse.flush()
+                        except Exception as lf_err:
+                            print(f"[langfuse] logging failed: {lf_err}")
+                    return final
+                except json.JSONDecodeError:
+                    continue
+
+    except Exception as e:
+        print(f"[eval] Failed for {ticker} mode={mode}: {e}")
+
+    return {
+        "ticker":            ticker,
+        "catalyst_type":     "UNKNOWN",
+        "catalyst_strength": "NONE",
+        "proportionality":   "FAIR",
+        "manipulation_risk": "MEDIUM",
+        "signal":            "AVOID",
+        "confidence":        0,
+        "reason":            "Analysis failed",
+        "risk":              "Unknown",
+        "entry_timing":      "Do not enter",
+        "exit_timing":       "N/A",
+        "eval_mode":         mode,
+    }

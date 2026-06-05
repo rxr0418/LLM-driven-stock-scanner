@@ -1,0 +1,917 @@
+[
+  {
+    "mode": "full",
+    "pass_rate": 4.0,
+    "passed": 1,
+    "total": 25,
+    "failures": [
+      {
+        "ticker": "SAVA",
+        "tags": [
+          "fda",
+          "biotech",
+          "approval"
+        ],
+        "result": {
+          "ticker": "SAVA",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "FDA_APPROVAL",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_found": [
+          "AVOID"
+        ],
+        "expected_facts": [
+          "FDA_APPROVAL",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "FDA_FAST_TRACK",
+          "pump"
+        ]
+      },
+      {
+        "ticker": "OCGN",
+        "tags": [
+          "fda",
+          "fast_track",
+          "biotech"
+        ],
+        "result": {
+          "ticker": "OCGN",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "FDA_FAST_TRACK",
+          "WATCH"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "FDA_FAST_TRACK",
+          "WATCH"
+        ],
+        "forbidden_facts": [
+          "FDA_APPROVAL",
+          "TRADE",
+          "STRONG"
+        ]
+      },
+      {
+        "ticker": "MDJH",
+        "tags": [
+          "no_catalyst",
+          "pump",
+          "manipulation"
+        ],
+        "result": {
+          "ticker": "MDJH",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "HIGH"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "UNKNOWN",
+          "AVOID",
+          "HIGH"
+        ],
+        "forbidden_facts": [
+          "TRADE",
+          "STRONG",
+          "LOW"
+        ]
+      },
+      {
+        "ticker": "BBAI",
+        "tags": [
+          "earnings",
+          "beat",
+          "guidance"
+        ],
+        "result": {
+          "ticker": "BBAI",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "EARNINGS_BEAT",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_found": [
+          "AVOID",
+          "UNKNOWN"
+        ],
+        "expected_facts": [
+          "EARNINGS_BEAT",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "UNKNOWN"
+        ]
+      },
+      {
+        "ticker": "MARA",
+        "tags": [
+          "sector",
+          "crypto",
+          "bitcoin"
+        ],
+        "result": {
+          "ticker": "MARA",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "SECTOR_MOVE",
+          "WATCH"
+        ],
+        "forbidden_found": [
+          "AVOID",
+          "UNKNOWN"
+        ],
+        "expected_facts": [
+          "SECTOR_MOVE",
+          "WATCH"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "UNKNOWN",
+          "HIGH"
+        ]
+      },
+      {
+        "ticker": "NVAX",
+        "tags": [
+          "earnings",
+          "miss",
+          "gap_down"
+        ],
+        "result": {
+          "ticker": "NVAX",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "EARNINGS_MISS"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "EARNINGS_MISS",
+          "AVOID"
+        ],
+        "forbidden_facts": [
+          "TRADE",
+          "STRONG"
+        ]
+      },
+      {
+        "ticker": "ACMR",
+        "tags": [
+          "contract",
+          "semiconductor"
+        ],
+        "result": {
+          "ticker": "ACMR",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "CONTRACT_WIN",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_found": [
+          "AVOID",
+          "UNKNOWN"
+        ],
+        "expected_facts": [
+          "CONTRACT_WIN",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "UNKNOWN"
+        ]
+      },
+      {
+        "ticker": "BNGO",
+        "tags": [
+          "fda",
+          "breakthrough",
+          "biotech"
+        ],
+        "result": {
+          "ticker": "BNGO",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "FDA_FAST_TRACK",
+          "MODERATE",
+          "WATCH"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "FDA_FAST_TRACK",
+          "MODERATE",
+          "WATCH"
+        ],
+        "forbidden_facts": [
+          "FDA_APPROVAL",
+          "TRADE",
+          "STRONG"
+        ]
+      },
+      {
+        "ticker": "CRWN",
+        "tags": [
+          "no_catalyst",
+          "pump",
+          "tiny_float"
+        ],
+        "result": {
+          "ticker": "CRWN",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "HIGH"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "UNKNOWN",
+          "AVOID",
+          "HIGH"
+        ],
+        "forbidden_facts": [
+          "TRADE",
+          "WATCH",
+          "LOW"
+        ]
+      },
+      {
+        "ticker": "ATER",
+        "tags": [
+          "short_squeeze",
+          "retail"
+        ],
+        "result": {
+          "ticker": "ATER",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "SHORT_SQUEEZE",
+          "WATCH"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "SHORT_SQUEEZE",
+          "WATCH"
+        ],
+        "forbidden_facts": [
+          "FDA_APPROVAL",
+          "EARNINGS_BEAT"
+        ]
+      },
+      {
+        "ticker": "PRAX",
+        "tags": [
+          "clinical_trial",
+          "biotech",
+          "phase3"
+        ],
+        "result": {
+          "ticker": "PRAX",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "CLINICAL_TRIAL",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_found": [
+          "AVOID",
+          "UNKNOWN"
+        ],
+        "expected_facts": [
+          "CLINICAL_TRIAL",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "UNKNOWN",
+          "FDA_APPROVAL"
+        ]
+      },
+      {
+        "ticker": "DWAC",
+        "tags": [
+          "dilution",
+          "offering",
+          "gap_down"
+        ],
+        "result": {
+          "ticker": "DWAC",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "DILUTION"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "DILUTION",
+          "AVOID"
+        ],
+        "forbidden_facts": [
+          "TRADE",
+          "STRONG",
+          "LOW"
+        ]
+      },
+      {
+        "ticker": "SMCI",
+        "tags": [
+          "guidance",
+          "tech"
+        ],
+        "result": {
+          "ticker": "SMCI",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "GUIDANCE_RAISE",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_found": [
+          "AVOID",
+          "UNKNOWN"
+        ],
+        "expected_facts": [
+          "GUIDANCE_RAISE",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "UNKNOWN"
+        ]
+      },
+      {
+        "ticker": "SPCE",
+        "tags": [
+          "analyst",
+          "upgrade",
+          "weak_catalyst"
+        ],
+        "result": {
+          "ticker": "SPCE",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "ANALYST_UPGRADE",
+          "WEAK",
+          "WATCH"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "ANALYST_UPGRADE",
+          "WEAK",
+          "WATCH"
+        ],
+        "forbidden_facts": [
+          "STRONG",
+          "TRADE"
+        ]
+      },
+      {
+        "ticker": "OKLO",
+        "tags": [
+          "contract",
+          "nuclear",
+          "energy"
+        ],
+        "result": {
+          "ticker": "OKLO",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "CONTRACT_WIN",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_found": [
+          "AVOID",
+          "UNKNOWN"
+        ],
+        "expected_facts": [
+          "CONTRACT_WIN",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "UNKNOWN"
+        ]
+      },
+      {
+        "ticker": "RXRX",
+        "tags": [
+          "clinical_trial",
+          "phase2",
+          "biotech"
+        ],
+        "result": {
+          "ticker": "RXRX",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "CLINICAL_TRIAL",
+          "MODERATE",
+          "WATCH"
+        ],
+        "forbidden_found": [
+          "AVOID"
+        ],
+        "expected_facts": [
+          "CLINICAL_TRIAL",
+          "MODERATE",
+          "WATCH"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "FDA_APPROVAL"
+        ]
+      },
+      {
+        "ticker": "NVDA",
+        "tags": [
+          "large_cap",
+          "sector",
+          "tech"
+        ],
+        "result": {
+          "ticker": "NVDA",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "SECTOR_MOVE",
+          "WATCH"
+        ],
+        "forbidden_found": [
+          "AVOID",
+          "UNKNOWN"
+        ],
+        "expected_facts": [
+          "SECTOR_MOVE",
+          "WATCH"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "UNKNOWN"
+        ]
+      },
+      {
+        "ticker": "BLPH",
+        "tags": [
+          "fda",
+          "approval",
+          "biotech",
+          "small_float"
+        ],
+        "result": {
+          "ticker": "BLPH",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "FDA_APPROVAL",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_found": [
+          "AVOID"
+        ],
+        "expected_facts": [
+          "FDA_APPROVAL",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_facts": [
+          "FDA_FAST_TRACK",
+          "AVOID"
+        ]
+      },
+      {
+        "ticker": "WOLF",
+        "tags": [
+          "earnings",
+          "miss",
+          "guidance_cut"
+        ],
+        "result": {
+          "ticker": "WOLF",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "EARNINGS_MISS"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "EARNINGS_MISS",
+          "AVOID"
+        ],
+        "forbidden_facts": [
+          "TRADE",
+          "STRONG",
+          "BUY"
+        ]
+      },
+      {
+        "ticker": "BTBT",
+        "tags": [
+          "crypto",
+          "sector",
+          "bitcoin_miner"
+        ],
+        "result": {
+          "ticker": "BTBT",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "SECTOR_MOVE",
+          "WATCH"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "SECTOR_MOVE",
+          "WATCH"
+        ],
+        "forbidden_facts": [
+          "STRONG",
+          "TRADE"
+        ]
+      },
+      {
+        "ticker": "PRGO",
+        "tags": [
+          "merger",
+          "acquisition",
+          "ma"
+        ],
+        "result": {
+          "ticker": "PRGO",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_found": [
+          "AVOID",
+          "UNKNOWN"
+        ],
+        "expected_facts": [
+          "MA",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "UNKNOWN"
+        ]
+      },
+      {
+        "ticker": "PGEN",
+        "tags": [
+          "fda",
+          "fast_track",
+          "ambiguous_wording"
+        ],
+        "result": {
+          "ticker": "PGEN",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "FDA_FAST_TRACK",
+          "WATCH"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "FDA_FAST_TRACK",
+          "WATCH"
+        ],
+        "forbidden_facts": [
+          "FDA_APPROVAL",
+          "TRADE",
+          "STRONG"
+        ]
+      },
+      {
+        "ticker": "AIOT",
+        "tags": [
+          "pump",
+          "mou",
+          "tiny_float",
+          "vague"
+        ],
+        "result": {
+          "ticker": "AIOT",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "HIGH"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "UNKNOWN",
+          "AVOID",
+          "HIGH"
+        ],
+        "forbidden_facts": [
+          "TRADE",
+          "STRONG",
+          "LOW"
+        ]
+      },
+      {
+        "ticker": "EDIT",
+        "tags": [
+          "clinical_trial",
+          "crispr",
+          "biotech",
+          "strong_data"
+        ],
+        "result": {
+          "ticker": "EDIT",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "MEDIUM",
+          "signal": "AVOID",
+          "confidence": 0,
+          "reason": "Analysis failed",
+          "risk": "Unknown",
+          "entry_timing": "Do not enter",
+          "exit_timing": "N/A",
+          "eval_mode": "full"
+        },
+        "missing_facts": [
+          "CLINICAL_TRIAL",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_found": [
+          "AVOID",
+          "UNKNOWN"
+        ],
+        "expected_facts": [
+          "CLINICAL_TRIAL",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "UNKNOWN",
+          "FDA_APPROVAL"
+        ]
+      }
+    ],
+    "elapsed_s": 19.2,
+    "timestamp": "2026-06-04T15:07:43.577298"
+  }
+]

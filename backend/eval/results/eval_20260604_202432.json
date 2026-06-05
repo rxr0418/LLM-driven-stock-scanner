@@ -1,0 +1,1448 @@
+{
+  "eval_results": [
+    {
+      "mode": "baseline",
+      "pass_rate": 56.0,
+      "passed": 14,
+      "total": 25,
+      "results": [
+        {
+          "case": {
+            "input": {
+              "ticker": "SAVA",
+              "change": 28.0,
+              "rvol": 15.2,
+              "float_m": 8.0,
+              "cap_m": 45.0,
+              "news": "Cassava Sciences receives FDA approval for simufilam in Alzheimer's disease"
+            },
+            "expected_facts": [
+              "FDA_APPROVAL",
+              "STRONG",
+              "TRADE"
+            ],
+            "forbidden_facts": [
+              "AVOID",
+              "FDA_FAST_TRACK",
+              "pump"
+            ],
+            "tags": [
+              "fda",
+              "biotech",
+              "approval"
+            ]
+          },
+          "result": {
+            "ticker": "SAVA",
+            "catalyst_type": "FDA_APPROVAL",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "TRADE",
+            "confidence": 88,
+            "reason": "Full FDA approval for lead drug is a company-changing binary event.",
+            "risk": "Profit-taking in first 5 minutes is common; wait for first green candle.",
+            "entry_timing": "Wait for first 1-minute candle to close green after 9:30 open.",
+            "exit_timing": "Exit by 10:30 AM or at +20% gain; stop loss at -8% from entry.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "OCGN",
+              "change": 22.0,
+              "rvol": 6.8,
+              "float_m": 12.0,
+              "cap_m": 80.0,
+              "news": "Ocugen receives FDA Fast Track designation for vaccine candidate"
+            },
+            "expected_facts": [
+              "FDA_FAST_TRACK",
+              "WATCH"
+            ],
+            "forbidden_facts": [
+              "FDA_APPROVAL",
+              "TRADE",
+              "STRONG"
+            ],
+            "tags": [
+              "fda",
+              "fast_track",
+              "biotech"
+            ]
+          },
+          "result": {
+            "ticker": "OCGN",
+            "catalyst_type": "FDA_FAST_TRACK",
+            "catalyst_strength": "MODERATE",
+            "proportionality": "OVER",
+            "manipulation_risk": "MEDIUM",
+            "signal": "WATCH",
+            "confidence": 45,
+            "reason": "Fast Track is NOT approval — only speeds review process, and +22% move on an $80M cap biotech with 12M float is a likely overreaction to a non-approval event.",
+            "risk": "Gap fill to +8-12% is highly probable at open as retail euphoria fades and informed sellers unload into the spike.",
+            "entry_timing": "Only enter if price holds above +15% for the full first 5 minutes after 9:30 open with sustained volume — do not chase the open print.",
+            "exit_timing": "If entered, target +5% from entry and exit no later than 10:00 AM; place hard stop at -7% from entry.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "MDJH",
+              "change": 35.0,
+              "rvol": 25.0,
+              "float_m": 2.0,
+              "cap_m": 15.0,
+              "news": ""
+            },
+            "expected_facts": [
+              "UNKNOWN",
+              "AVOID",
+              "HIGH"
+            ],
+            "forbidden_facts": [
+              "TRADE",
+              "STRONG",
+              "LOW"
+            ],
+            "tags": [
+              "no_catalyst",
+              "pump",
+              "manipulation"
+            ]
+          },
+          "result": {
+            "ticker": "MDJH",
+            "catalyst_type": "UNKNOWN",
+            "catalyst_strength": "NONE",
+            "proportionality": "OVER",
+            "manipulation_risk": "HIGH",
+            "signal": "AVOID",
+            "confidence": 5,
+            "reason": "No catalyst with a 2M float and 25x RVOL on a $15M micro-cap is a textbook pump-and-dump with no fundamental basis.",
+            "risk": "Will likely reverse 80%+ of gains within the first 30 minutes as coordinated sellers dump into retail buyers.",
+            "entry_timing": "Do not enter under any circumstances.",
+            "exit_timing": "N/A — do not trade.",
+            "eval_mode": "baseline"
+          },
+          "passed": false
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "BBAI",
+              "change": 18.0,
+              "rvol": 8.5,
+              "float_m": 45.0,
+              "cap_m": 200.0,
+              "news": "BigBear.ai Q4 revenue $45M beats $38M estimate; raises FY guidance to $195M"
+            },
+            "expected_facts": [
+              "EARNINGS_BEAT",
+              "STRONG",
+              "TRADE"
+            ],
+            "forbidden_facts": [
+              "AVOID",
+              "UNKNOWN"
+            ],
+            "tags": [
+              "earnings",
+              "beat",
+              "guidance"
+            ]
+          },
+          "result": {
+            "ticker": "BBAI",
+            "catalyst_type": "EARNINGS_BEAT",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "TRADE",
+            "confidence": 78,
+            "reason": "Q4 revenue beat of 18% above estimates combined with a raised FY guidance to $195M is a genuine, company-specific fundamental catalyst that justifies an 18% gap-up on a 45M float.",
+            "risk": "Small-cap AI names are prone to fade after the initial pop; profit-takers and short sellers may pressure the stock in the first 15-30 minutes.",
+            "entry_timing": "Wait for the first 1-minute candle to close green after 9:30 open and confirm VWAP hold before entering.",
+            "exit_timing": "Target +10-15% from open price and exit by 10:30 AM; set stop loss at -7% from entry or a break below VWAP.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "MARA",
+              "change": 12.0,
+              "rvol": 3.2,
+              "float_m": 95.0,
+              "cap_m": 280.0,
+              "news": "Bitcoin surges 5% overnight to $72,000 on ETF inflow data"
+            },
+            "expected_facts": [
+              "SECTOR_MOVE",
+              "WATCH"
+            ],
+            "forbidden_facts": [
+              "AVOID",
+              "UNKNOWN",
+              "HIGH"
+            ],
+            "tags": [
+              "sector",
+              "crypto",
+              "bitcoin"
+            ]
+          },
+          "result": {
+            "ticker": "MARA",
+            "catalyst_type": "SECTOR_MOVE",
+            "catalyst_strength": "MODERATE",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "WATCH",
+            "confidence": 58,
+            "reason": "MARA is a high-beta Bitcoin proxy and a +12% move on a +5% BTC surge is proportional given its leveraged correlation to crypto prices.",
+            "risk": "Bitcoin is volatile intraday and any BTC pullback from $72K will hit MARA 2-3x harder, making this a fast-moving reversal risk.",
+            "entry_timing": "Wait for the first 2-minute candle to close green after open and confirm BTC is holding above $71,500 before entering.",
+            "exit_timing": "Target +8-10% from entry and exit by 10:30 AM; set hard stop at -6% from entry as BTC sentiment can shift instantly.",
+            "eval_mode": "baseline"
+          },
+          "passed": false
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "NVAX",
+              "change": -18.0,
+              "rvol": 9.1,
+              "float_m": 22.0,
+              "cap_m": 120.0,
+              "news": "Novavax Q3 revenue misses estimates; lowers full year guidance"
+            },
+            "expected_facts": [
+              "EARNINGS_MISS",
+              "AVOID"
+            ],
+            "forbidden_facts": [
+              "TRADE",
+              "STRONG"
+            ],
+            "tags": [
+              "earnings",
+              "miss",
+              "gap_down"
+            ]
+          },
+          "result": {
+            "ticker": "NVAX",
+            "catalyst_type": "EARNINGS_MISS",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "WATCH",
+            "confidence": 72,
+            "reason": "Confirmed earnings miss plus guidance cut is a double negative fundamental catalyst justifying a sharp gap down on a small-float biotech.",
+            "risk": "Dead-cat bounce is common in first 15 minutes before sellers regain control; also risk of further selling if broader market is weak.",
+            "entry_timing": "Only consider a short entry if price bounces to VWAP or previous support and fails, confirmed by a red 1-minute candle; do not chase the gap down at open.",
+            "exit_timing": "Cover short by 10:30 AM or at -25% to -30% from prior close; stop loss at -12% from entry if bounce accelerates.",
+            "eval_mode": "baseline"
+          },
+          "passed": false
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "ACMR",
+              "change": 25.0,
+              "rvol": 11.0,
+              "float_m": 6.0,
+              "cap_m": 90.0,
+              "news": "ACM Research announces $200M contract with TSMC for semiconductor equipment"
+            },
+            "expected_facts": [
+              "CONTRACT_WIN",
+              "STRONG",
+              "TRADE"
+            ],
+            "forbidden_facts": [
+              "AVOID",
+              "UNKNOWN"
+            ],
+            "tags": [
+              "contract",
+              "semiconductor"
+            ]
+          },
+          "result": {
+            "ticker": "ACMR",
+            "catalyst_type": "CONTRACT_WIN",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "TRADE",
+            "confidence": 82,
+            "reason": "A $200M contract with TSMC is a transformative, company-specific catalyst representing more than 2x the current market cap, giving the +25% move strong fundamental justification.",
+            "risk": "Small 6M float means violent two-way action at open; early profit-taking could cause a sharp 10-15% flush before continuation.",
+            "entry_timing": "Wait for the first 1-minute candle to close green after 9:30 open and confirm price holds above +18% from prior close before entering.",
+            "exit_timing": "Target +35-40% from prior close or exit by 10:30 AM; set hard stop-loss at -8% from entry price to manage flush risk.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "BNGO",
+              "change": 15.0,
+              "rvol": 4.5,
+              "float_m": 18.0,
+              "cap_m": 70.0,
+              "news": "Bionano Genomics receives Breakthrough Device Designation from FDA for optical genome mapping"
+            },
+            "expected_facts": [
+              "FDA_FAST_TRACK",
+              "MODERATE",
+              "WATCH"
+            ],
+            "forbidden_facts": [
+              "FDA_APPROVAL",
+              "TRADE",
+              "STRONG"
+            ],
+            "tags": [
+              "fda",
+              "breakthrough",
+              "biotech"
+            ]
+          },
+          "result": {
+            "ticker": "BNGO",
+            "catalyst_type": "FDA_FAST_TRACK",
+            "catalyst_strength": "MODERATE",
+            "proportionality": "OVER",
+            "manipulation_risk": "MEDIUM",
+            "signal": "WATCH",
+            "confidence": 38,
+            "reason": "Breakthrough Device Designation accelerates FDA review but is NOT approval — it confers no revenue and does not guarantee clearance, making +15% likely an overreaction on a $70M microcap.",
+            "risk": "Gap fill back toward +5-8% is likely in the first 30 minutes as traders who understand the designation sell into retail excitement.",
+            "entry_timing": "Only consider a long entry if price holds above +10% after the first 5-minute candle closes green with volume confirmation.",
+            "exit_timing": "If entered, target a quick 5-8% scalp and exit no later than 10:00 AM; do not hold into midday.",
+            "eval_mode": "baseline"
+          },
+          "passed": false
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "CRWN",
+              "change": 42.0,
+              "rvol": 31.0,
+              "float_m": 1.5,
+              "cap_m": 8.0,
+              "news": ""
+            },
+            "expected_facts": [
+              "UNKNOWN",
+              "AVOID",
+              "HIGH"
+            ],
+            "forbidden_facts": [
+              "TRADE",
+              "WATCH",
+              "LOW"
+            ],
+            "tags": [
+              "no_catalyst",
+              "pump",
+              "tiny_float"
+            ]
+          },
+          "result": {
+            "ticker": "CRWN",
+            "catalyst_type": "UNKNOWN",
+            "catalyst_strength": "NONE",
+            "proportionality": "OVER",
+            "manipulation_risk": "HIGH",
+            "signal": "AVOID",
+            "confidence": 6,
+            "reason": "No news whatsoever on a 1.5M float, $8M micro-cap with 31x RVOL and +42% premarket move is a textbook pump-and-dump setup.",
+            "risk": "Extreme reversal risk — moves like this on no-news micro-floats routinely collapse 70-90% within the first 15-30 minutes of open.",
+            "entry_timing": "Do not enter under any circumstances.",
+            "exit_timing": "N/A — do not trade.",
+            "eval_mode": "baseline"
+          },
+          "passed": false
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "ATER",
+              "change": 20.0,
+              "rvol": 18.0,
+              "float_m": 5.0,
+              "cap_m": 35.0,
+              "news": "Short interest in Aterian reaches 45% of float; retail buying surge detected on social media"
+            },
+            "expected_facts": [
+              "SHORT_SQUEEZE",
+              "WATCH"
+            ],
+            "forbidden_facts": [
+              "FDA_APPROVAL",
+              "EARNINGS_BEAT"
+            ],
+            "tags": [
+              "short_squeeze",
+              "retail"
+            ]
+          },
+          "result": {
+            "ticker": "ATER",
+            "catalyst_type": "SHORT_SQUEEZE",
+            "catalyst_strength": "MODERATE",
+            "proportionality": "FAIR",
+            "manipulation_risk": "HIGH",
+            "signal": "WATCH",
+            "confidence": 38,
+            "reason": "45% short float with retail-driven social media hype on a 5M float micro-cap is a classic squeeze setup but also a textbook pump-and-dump vector with no fundamental catalyst.",
+            "risk": "Social media-driven squeezes on micro-caps with 18x RVOL frequently reverse violently within minutes of open as promoters exit into retail buyers.",
+            "entry_timing": "Only consider entry if price holds above +15% for the first 2 full 1-minute candles with declining sell volume — do not chase the open spike.",
+            "exit_timing": "If entered, set hard stop at -8% from entry and take profits quickly at +10-15% gain; do not hold past 10:00 AM under any circumstances.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "PRAX",
+              "change": 31.0,
+              "rvol": 12.0,
+              "float_m": 9.0,
+              "cap_m": 55.0,
+              "news": "Praxis Precision Medicine phase 3 trial of ulixacaltamide meets primary endpoint in essential tremor"
+            },
+            "expected_facts": [
+              "CLINICAL_TRIAL",
+              "STRONG",
+              "TRADE"
+            ],
+            "forbidden_facts": [
+              "AVOID",
+              "UNKNOWN",
+              "FDA_APPROVAL"
+            ],
+            "tags": [
+              "clinical_trial",
+              "biotech",
+              "phase3"
+            ]
+          },
+          "result": {
+            "ticker": "PRAX",
+            "catalyst_type": "CLINICAL_TRIAL",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "TRADE",
+            "confidence": 82,
+            "reason": "Phase 3 primary endpoint met in essential tremor is a high-value binary catalyst for a $55M market cap biotech, making +31% a proportional and justified move.",
+            "risk": "Phase 3 success is not FDA approval — profit-taking and gap-fill risk in first 5 minutes on a 9M float can cause violent whipsaws.",
+            "entry_timing": "Wait for the first 1-minute candle to close green after 9:30 open and confirm hold above +22% before entering.",
+            "exit_timing": "Target +40-50% or exit by 10:30 AM; set hard stop at -10% from entry given small float volatility.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "DWAC",
+              "change": -25.0,
+              "rvol": 14.0,
+              "float_m": 30.0,
+              "cap_m": 180.0,
+              "news": "Digital World Acquisition announces $150M at-the-market equity offering"
+            },
+            "expected_facts": [
+              "DILUTION",
+              "AVOID"
+            ],
+            "forbidden_facts": [
+              "TRADE",
+              "STRONG",
+              "LOW"
+            ],
+            "tags": [
+              "dilution",
+              "offering",
+              "gap_down"
+            ]
+          },
+          "result": {
+            "ticker": "DWAC",
+            "catalyst_type": "DILUTION",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "AVOID",
+            "confidence": 82,
+            "reason": "A $150M ATM offering on a $180M market cap company represents massive ~83% dilution, fully justifying the -25% premarket collapse.",
+            "risk": "ATM offerings allow continuous share selling at market price, creating persistent overhead supply and further downside pressure throughout the session.",
+            "entry_timing": "Do not enter long; only aggressive short-sellers with high risk tolerance should consider a short entry on a dead-cat bounce rejection near -15% to -18% range.",
+            "exit_timing": "If shorting, cover quickly before 10:30 AM as bounces can be violent on high-RVOL dilution plays; do not hold into afternoon.",
+            "eval_mode": "baseline"
+          },
+          "passed": false
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "SMCI",
+              "change": 16.0,
+              "rvol": 5.8,
+              "float_m": 55.0,
+              "cap_m": 290.0,
+              "news": "Super Micro Computer raises Q2 revenue guidance to $5.9B from prior range of $5.5-5.7B"
+            },
+            "expected_facts": [
+              "GUIDANCE_RAISE",
+              "STRONG",
+              "TRADE"
+            ],
+            "forbidden_facts": [
+              "AVOID",
+              "UNKNOWN"
+            ],
+            "tags": [
+              "guidance",
+              "tech"
+            ]
+          },
+          "result": {
+            "ticker": "SMCI",
+            "catalyst_type": "GUIDANCE_RAISE",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "TRADE",
+            "confidence": 78,
+            "reason": "Q2 revenue guidance raised meaningfully above prior range to $5.9B is a hard, company-specific fundamental catalyst confirming AI server demand strength.",
+            "risk": "SMCI has history of volatile reversals and accounting overhang concerns; gap-fill pullback to +8-10% possible in first 15 minutes.",
+            "entry_timing": "Wait for the first 1-minute candle to close green after 9:30 open and confirm hold above the $290M implied premarket price level before entering.",
+            "exit_timing": "Target exit at +10-15% from entry or by 10:30 AM, whichever comes first; set hard stop loss at -7% from entry price.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "SPCE",
+              "change": 8.0,
+              "rvol": 2.1,
+              "float_m": 85.0,
+              "cap_m": 220.0,
+              "news": "Analyst at Canaccord upgrades Virgin Galactic to Buy, raises price target to $8"
+            },
+            "expected_facts": [
+              "ANALYST_UPGRADE",
+              "WEAK",
+              "WATCH"
+            ],
+            "forbidden_facts": [
+              "STRONG",
+              "TRADE"
+            ],
+            "tags": [
+              "analyst",
+              "upgrade",
+              "weak_catalyst"
+            ]
+          },
+          "result": {
+            "ticker": "SPCE",
+            "catalyst_type": "ANALYST_UPGRADE",
+            "catalyst_strength": "MODERATE",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "WATCH",
+            "confidence": 52,
+            "reason": "Canaccord upgrade to Buy with $8 PT is a real but soft catalyst — analyst upgrades rarely sustain momentum past the open, especially on a speculative name like SPCE with ongoing execution risk.",
+            "risk": "SPCE has a history of disappointing retail traders; 85M float means no squeeze dynamics, and 2.1x RVOL suggests institutional interest is limited — fade risk is real after initial pop.",
+            "entry_timing": "Only enter if price holds above premarket highs in the first 3-5 minutes with increasing volume; a rejection back to flat is the more likely scenario.",
+            "exit_timing": "If entered, target +5-8% from entry and exit by 10:00 AM; hard stop at -5% from entry as upgrades rarely sustain intraday follow-through.",
+            "eval_mode": "baseline"
+          },
+          "passed": false
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "OKLO",
+              "change": 19.0,
+              "rvol": 7.3,
+              "float_m": 14.0,
+              "cap_m": 95.0,
+              "news": "Oklo signs power purchase agreement with Switch for 12 GW of nuclear energy over 20 years"
+            },
+            "expected_facts": [
+              "CONTRACT_WIN",
+              "STRONG",
+              "TRADE"
+            ],
+            "forbidden_facts": [
+              "AVOID",
+              "UNKNOWN"
+            ],
+            "tags": [
+              "contract",
+              "nuclear",
+              "energy"
+            ]
+          },
+          "result": {
+            "ticker": "OKLO",
+            "catalyst_type": "CONTRACT_WIN",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "TRADE",
+            "confidence": 78,
+            "reason": "A 12 GW, 20-year PPA with hyperscaler Switch is a landmark, company-defining contract for a pre-revenue nuclear startup, justifying a significant re-rating.",
+            "risk": "Oklo has no operating reactors yet and revenue is years away, so this is a future-value trade — profit-taking and gap-fill risk are elevated in the first 15 minutes.",
+            "entry_timing": "Wait for the first 1-minute candle to close green above the premarket high after 9:30 open; confirm volume is sustained above 7x RVOL.",
+            "exit_timing": "Target +10-15% from entry by 10:30 AM; set hard stop-loss at -8% from entry and do not hold past 11:00 AM without clear continuation momentum.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "BFRI",
+              "change": 38.0,
+              "rvol": 22.0,
+              "float_m": 3.0,
+              "cap_m": 20.0,
+              "news": "Biafra Industries announces strategic partnership with unnamed Asian distributor"
+            },
+            "expected_facts": [
+              "UNKNOWN",
+              "AVOID"
+            ],
+            "forbidden_facts": [
+              "STRONG",
+              "TRADE",
+              "LOW"
+            ],
+            "tags": [
+              "vague_news",
+              "manipulation",
+              "tiny_float"
+            ]
+          },
+          "result": {
+            "ticker": "BFRI",
+            "catalyst_type": "CONTRACT_WIN",
+            "catalyst_strength": "WEAK",
+            "proportionality": "OVER",
+            "manipulation_risk": "HIGH",
+            "signal": "AVOID",
+            "confidence": 12,
+            "reason": "Vague 'unnamed Asian distributor' partnership on a 3M float micro-cap with 22x RVOL is a textbook pump setup — no verifiable counterparty, no financial terms, and no substance to justify +38%.",
+            "risk": "With a 3M share float and no credible catalyst, this is highly susceptible to a violent reversal of 60-80%+ within the first 30 minutes as early holders dump into retail buyers.",
+            "entry_timing": "Do not enter — manipulation risk is too high and catalyst is unverifiable.",
+            "exit_timing": "N/A — do not trade this name.",
+            "eval_mode": "baseline"
+          },
+          "passed": false
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "RXRX",
+              "change": 24.0,
+              "rvol": 9.6,
+              "float_m": 28.0,
+              "cap_m": 160.0,
+              "news": "Recursion Pharmaceuticals phase 2 trial of REC-2282 shows statistically significant improvement in NF2"
+            },
+            "expected_facts": [
+              "CLINICAL_TRIAL",
+              "MODERATE",
+              "WATCH"
+            ],
+            "forbidden_facts": [
+              "AVOID",
+              "FDA_APPROVAL"
+            ],
+            "tags": [
+              "clinical_trial",
+              "phase2",
+              "biotech"
+            ]
+          },
+          "result": {
+            "ticker": "RXRX",
+            "catalyst_type": "CLINICAL_TRIAL",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "TRADE",
+            "confidence": 74,
+            "reason": "Statistically significant Phase 2 results for REC-2282 in NF2 is a meaningful binary clinical milestone that legitimately justifies a large gap-up for a $160M biotech.",
+            "risk": "Phase 2 success does not guarantee Phase 3 or approval; profit-taking and gap-fill pressure are likely in the first 15 minutes.",
+            "entry_timing": "Wait for the first 1-minute candle to close green after 9:30 open and confirm volume support above the premarket high before entering.",
+            "exit_timing": "Target +15-20% from entry and exit by 10:30 AM; set a hard stop-loss at -8% from entry to protect against rapid reversal.",
+            "eval_mode": "baseline"
+          },
+          "passed": false
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "NVDA",
+              "change": 6.0,
+              "rvol": 1.8,
+              "float_m": 2400.0,
+              "cap_m": 290000.0,
+              "news": "NVIDIA announces new Blackwell Ultra GPU at GTC conference"
+            },
+            "expected_facts": [
+              "SECTOR_MOVE",
+              "WATCH"
+            ],
+            "forbidden_facts": [
+              "AVOID",
+              "UNKNOWN"
+            ],
+            "tags": [
+              "large_cap",
+              "sector",
+              "tech"
+            ]
+          },
+          "result": {
+            "ticker": "NVDA",
+            "catalyst_type": "SECTOR_MOVE",
+            "catalyst_strength": "MODERATE",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "WATCH",
+            "confidence": 62,
+            "reason": "New GPU architecture announcement at GTC is a meaningful product catalyst for NVIDIA but a conference reveal is not a binary revenue event, and +6% on a $290B market cap requires sustained institutional buying to hold.",
+            "risk": "Large-cap product announcements frequently see 'sell the news' reversals at open as retail chases premarket highs that institutions already faded.",
+            "entry_timing": "Wait for the first 5-minute candle to close green and volume to confirm above 1.5x average before entering; do not chase the open print.",
+            "exit_timing": "Target +3-4% from entry for a measured move; cut loss at -2% from entry and do not hold past 11:00 AM if price stalls.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "BLPH",
+              "change": 45.0,
+              "rvol": 19.0,
+              "float_m": 4.0,
+              "cap_m": 18.0,
+              "news": "Bellerophon Therapeutics receives FDA approval for INOpulse for pulmonary hypertension"
+            },
+            "expected_facts": [
+              "FDA_APPROVAL",
+              "STRONG",
+              "TRADE"
+            ],
+            "forbidden_facts": [
+              "FDA_FAST_TRACK",
+              "AVOID"
+            ],
+            "tags": [
+              "fda",
+              "approval",
+              "biotech",
+              "small_float"
+            ]
+          },
+          "result": {
+            "ticker": "BLPH",
+            "catalyst_type": "FDA_APPROVAL",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "TRADE",
+            "confidence": 85,
+            "reason": "Confirmed FDA approval for INOpulse is a genuine binary company-changing event for an $18M micro-cap with a 4M share float, making +45% a proportional and credible move.",
+            "risk": "Extreme volatility and thin float mean 20-30% whipsaws are possible in the first minutes; profit-taking and short sellers will be aggressive early.",
+            "entry_timing": "Wait for the first 1-minute candle to close green after 9:30 open and confirm volume is sustaining above 19x RVOL before entering.",
+            "exit_timing": "Target +20-30% from entry and exit by 10:30 AM at the latest; set a hard stop-loss at -10% from entry due to float-driven volatility.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "WOLF",
+              "change": -22.0,
+              "rvol": 11.5,
+              "float_m": 48.0,
+              "cap_m": 250.0,
+              "news": "Wolfspeed Q2 revenue $185M misses $201M estimate; Q3 guidance below consensus"
+            },
+            "expected_facts": [
+              "EARNINGS_MISS",
+              "AVOID"
+            ],
+            "forbidden_facts": [
+              "TRADE",
+              "STRONG",
+              "BUY"
+            ],
+            "tags": [
+              "earnings",
+              "miss",
+              "guidance_cut"
+            ]
+          },
+          "result": {
+            "ticker": "WOLF",
+            "catalyst_type": "EARNINGS_MISS",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "WATCH",
+            "confidence": 72,
+            "reason": "A confirmed revenue miss of ~8% versus estimates plus below-consensus forward guidance is a legitimate fundamental catalyst justifying a significant gap down on a struggling semiconductor name.",
+            "risk": "Dead-cat bounces are common in the first 15-30 minutes; stock could also continue flushing lower if institutional sellers hit the open aggressively.",
+            "entry_timing": "For a short: wait for a failed bounce — enter only if price rallies into the $5.50-$6.00 range and the 1-minute candle closes red with volume confirmation. For a long: do not chase the gap down; wait for a capitulation wick and a green close above the day's low.",
+            "exit_timing": "Cover shorts by 10:30 AM or at -10% from entry; for any long scalp, exit within 20-30 minutes with a tight stop 3-4% below entry.",
+            "eval_mode": "baseline"
+          },
+          "passed": false
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "BTBT",
+              "change": 14.0,
+              "rvol": 4.1,
+              "float_m": 72.0,
+              "cap_m": 180.0,
+              "news": "Bitcoin rises 4% as spot ETF inflows hit $500M for third consecutive day"
+            },
+            "expected_facts": [
+              "SECTOR_MOVE",
+              "WATCH"
+            ],
+            "forbidden_facts": [
+              "STRONG",
+              "TRADE"
+            ],
+            "tags": [
+              "crypto",
+              "sector",
+              "bitcoin_miner"
+            ]
+          },
+          "result": {
+            "ticker": "BTBT",
+            "catalyst_type": "SECTOR_MOVE",
+            "catalyst_strength": "MODERATE",
+            "proportionality": "OVER",
+            "manipulation_risk": "MEDIUM",
+            "signal": "WATCH",
+            "confidence": 42,
+            "reason": "BTBT is a Bitcoin miner leveraged to BTC price, but +14% move on a +4% BTC rally is a 3.5x amplification that looks stretched for a 72M float name with no company-specific catalyst.",
+            "risk": "Sector sympathy plays often fade hard at open as retail momentum chasers get shaken out; gap fill toward +6-8% is likely if BTC doesn't accelerate further.",
+            "entry_timing": "Only enter if price holds above +10% for the first 3 minutes after open with increasing volume confirming momentum, not distribution.",
+            "exit_timing": "Target +18-20% from prior close and exit by 10:00 AM; stop loss at -5% from entry or if BTC reverses.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "PRGO",
+              "change": 9.0,
+              "rvol": 3.3,
+              "float_m": 130.0,
+              "cap_m": 2800.0,
+              "news": "Perrigo announces definitive agreement to be acquired by Sanofi at $32 per share"
+            },
+            "expected_facts": [
+              "MA",
+              "STRONG",
+              "TRADE"
+            ],
+            "forbidden_facts": [
+              "AVOID",
+              "UNKNOWN"
+            ],
+            "tags": [
+              "merger",
+              "acquisition",
+              "ma"
+            ]
+          },
+          "result": {
+            "ticker": "PRGO",
+            "catalyst_type": "MA",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "TRADE",
+            "confidence": 85,
+            "reason": "Definitive acquisition agreement by Sanofi at $32/share is a hard binary catalyst with a fixed price target, making the move predictable and fundamentally justified.",
+            "risk": "Check current price vs $32 deal price — if premarket already trading near $32, upside is capped and spread risk dominates; deal break risk also exists.",
+            "entry_timing": "Enter at open if price is meaningfully below $32 deal price with a tight spread; first green 1-minute candle confirmation preferred.",
+            "exit_timing": "Target exit near $32 deal price or exit within 60 minutes if price stalls; stop loss at -4% from entry given large float limiting volatility.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "PGEN",
+              "change": 28.0,
+              "rvol": 13.0,
+              "float_m": 7.0,
+              "cap_m": 42.0,
+              "news": "Precigen receives FDA Fast Track for PRGN-2012 — FDA approved fast track review status today"
+            },
+            "expected_facts": [
+              "FDA_FAST_TRACK",
+              "WATCH"
+            ],
+            "forbidden_facts": [
+              "FDA_APPROVAL",
+              "TRADE",
+              "STRONG"
+            ],
+            "tags": [
+              "fda",
+              "fast_track",
+              "ambiguous_wording"
+            ]
+          },
+          "result": {
+            "ticker": "PGEN",
+            "catalyst_type": "FDA_FAST_TRACK",
+            "catalyst_strength": "MODERATE",
+            "proportionality": "OVER",
+            "manipulation_risk": "MEDIUM",
+            "signal": "WATCH",
+            "confidence": 38,
+            "reason": "FDA Fast Track is NOT approval — it only expedites review process, making +28% on a 7M float stock a likely overreaction to a moderate catalyst.",
+            "risk": "Gap fill likely; stock could retrace to +10-15% range quickly as retail sellers who bought premarket take profits at open.",
+            "entry_timing": "Only enter if price holds above +20% for the full first 5-minute candle with sustained volume; do not chase the open spike.",
+            "exit_timing": "If entered, target +35-40% and exit hard by 10:00 AM; set stop loss at -10% from entry as momentum can evaporate fast on Fast Track news.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "AIOT",
+              "change": 55.0,
+              "rvol": 45.0,
+              "float_m": 1.2,
+              "cap_m": 6.0,
+              "news": "AI-driven IoT solutions provider signs MOU with undisclosed Fortune 500 company"
+            },
+            "expected_facts": [
+              "UNKNOWN",
+              "AVOID",
+              "HIGH"
+            ],
+            "forbidden_facts": [
+              "TRADE",
+              "STRONG",
+              "LOW"
+            ],
+            "tags": [
+              "pump",
+              "mou",
+              "tiny_float",
+              "vague"
+            ]
+          },
+          "result": {
+            "ticker": "AIOT",
+            "catalyst_type": "CONTRACT_WIN",
+            "catalyst_strength": "WEAK",
+            "proportionality": "OVER",
+            "manipulation_risk": "HIGH",
+            "signal": "AVOID",
+            "confidence": 8,
+            "reason": "An MOU (not a binding contract) with an undisclosed partner is the weakest possible catalyst — unverifiable, non-binding, and tailor-made for pump-and-dump on a 1.2M float micro-cap with 45x RVOL.",
+            "risk": "Classic pump-and-dump setup: tiny float, extreme RVOL, vague unverifiable news, and $6M market cap means insiders can exit instantly while retail is trapped.",
+            "entry_timing": "Do not enter under any circumstances.",
+            "exit_timing": "N/A — do not trade.",
+            "eval_mode": "baseline"
+          },
+          "passed": false
+        },
+        {
+          "case": {
+            "input": {
+              "ticker": "EDIT",
+              "change": 20.0,
+              "rvol": 8.9,
+              "float_m": 16.0,
+              "cap_m": 88.0,
+              "news": "Editas Medicine CRISPR trial shows 90% reduction in disease marker at 12-month follow-up"
+            },
+            "expected_facts": [
+              "CLINICAL_TRIAL",
+              "STRONG",
+              "TRADE"
+            ],
+            "forbidden_facts": [
+              "AVOID",
+              "UNKNOWN",
+              "FDA_APPROVAL"
+            ],
+            "tags": [
+              "clinical_trial",
+              "crispr",
+              "biotech",
+              "strong_data"
+            ]
+          },
+          "result": {
+            "ticker": "EDIT",
+            "catalyst_type": "CLINICAL_TRIAL",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "TRADE",
+            "confidence": 74,
+            "reason": "90% reduction in disease marker at 12-month follow-up is a compelling clinical milestone for a CRISPR gene-editing company with an $88M market cap, making +20% a proportional initial reaction.",
+            "risk": "Clinical data is not FDA approval — sentiment can fade quickly, and profit-taking from premarket holders may create a sharp gap fill in the first 5 minutes.",
+            "entry_timing": "Wait for the first 1-minute candle to close green after 9:30 open and confirm volume is holding above 5x average before entering.",
+            "exit_timing": "Target +15-25% from open price; exit by 10:30 AM or immediately if price breaks below premarket support level; hard stop at -8% from entry.",
+            "eval_mode": "baseline"
+          },
+          "passed": true
+        }
+      ],
+      "failures": [
+        {
+          "ticker": "MDJH",
+          "tags": [
+            "no_catalyst",
+            "pump",
+            "manipulation"
+          ],
+          "result": {
+            "ticker": "MDJH",
+            "catalyst_type": "UNKNOWN",
+            "catalyst_strength": "NONE",
+            "proportionality": "OVER",
+            "manipulation_risk": "HIGH",
+            "signal": "AVOID",
+            "confidence": 5,
+            "reason": "No catalyst with a 2M float and 25x RVOL on a $15M micro-cap is a textbook pump-and-dump with no fundamental basis.",
+            "risk": "Will likely reverse 80%+ of gains within the first 30 minutes as coordinated sellers dump into retail buyers.",
+            "entry_timing": "Do not enter under any circumstances.",
+            "exit_timing": "N/A — do not trade.",
+            "eval_mode": "baseline"
+          },
+          "missing_facts": [],
+          "forbidden_found": [
+            "TRADE"
+          ],
+          "expected_facts": [
+            "UNKNOWN",
+            "AVOID",
+            "HIGH"
+          ],
+          "forbidden_facts": [
+            "TRADE",
+            "STRONG",
+            "LOW"
+          ]
+        },
+        {
+          "ticker": "MARA",
+          "tags": [
+            "sector",
+            "crypto",
+            "bitcoin"
+          ],
+          "result": {
+            "ticker": "MARA",
+            "catalyst_type": "SECTOR_MOVE",
+            "catalyst_strength": "MODERATE",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "WATCH",
+            "confidence": 58,
+            "reason": "MARA is a high-beta Bitcoin proxy and a +12% move on a +5% BTC surge is proportional given its leveraged correlation to crypto prices.",
+            "risk": "Bitcoin is volatile intraday and any BTC pullback from $72K will hit MARA 2-3x harder, making this a fast-moving reversal risk.",
+            "entry_timing": "Wait for the first 2-minute candle to close green after open and confirm BTC is holding above $71,500 before entering.",
+            "exit_timing": "Target +8-10% from entry and exit by 10:30 AM; set hard stop at -6% from entry as BTC sentiment can shift instantly.",
+            "eval_mode": "baseline"
+          },
+          "missing_facts": [],
+          "forbidden_found": [
+            "HIGH"
+          ],
+          "expected_facts": [
+            "SECTOR_MOVE",
+            "WATCH"
+          ],
+          "forbidden_facts": [
+            "AVOID",
+            "UNKNOWN",
+            "HIGH"
+          ]
+        },
+        {
+          "ticker": "NVAX",
+          "tags": [
+            "earnings",
+            "miss",
+            "gap_down"
+          ],
+          "result": {
+            "ticker": "NVAX",
+            "catalyst_type": "EARNINGS_MISS",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "WATCH",
+            "confidence": 72,
+            "reason": "Confirmed earnings miss plus guidance cut is a double negative fundamental catalyst justifying a sharp gap down on a small-float biotech.",
+            "risk": "Dead-cat bounce is common in first 15 minutes before sellers regain control; also risk of further selling if broader market is weak.",
+            "entry_timing": "Only consider a short entry if price bounces to VWAP or previous support and fails, confirmed by a red 1-minute candle; do not chase the gap down at open.",
+            "exit_timing": "Cover short by 10:30 AM or at -25% to -30% from prior close; stop loss at -12% from entry if bounce accelerates.",
+            "eval_mode": "baseline"
+          },
+          "missing_facts": [
+            "AVOID"
+          ],
+          "forbidden_found": [
+            "STRONG"
+          ],
+          "expected_facts": [
+            "EARNINGS_MISS",
+            "AVOID"
+          ],
+          "forbidden_facts": [
+            "TRADE",
+            "STRONG"
+          ]
+        },
+        {
+          "ticker": "BNGO",
+          "tags": [
+            "fda",
+            "breakthrough",
+            "biotech"
+          ],
+          "result": {
+            "ticker": "BNGO",
+            "catalyst_type": "FDA_FAST_TRACK",
+            "catalyst_strength": "MODERATE",
+            "proportionality": "OVER",
+            "manipulation_risk": "MEDIUM",
+            "signal": "WATCH",
+            "confidence": 38,
+            "reason": "Breakthrough Device Designation accelerates FDA review but is NOT approval — it confers no revenue and does not guarantee clearance, making +15% likely an overreaction on a $70M microcap.",
+            "risk": "Gap fill back toward +5-8% is likely in the first 30 minutes as traders who understand the designation sell into retail excitement.",
+            "entry_timing": "Only consider a long entry if price holds above +10% after the first 5-minute candle closes green with volume confirmation.",
+            "exit_timing": "If entered, target a quick 5-8% scalp and exit no later than 10:00 AM; do not hold into midday.",
+            "eval_mode": "baseline"
+          },
+          "missing_facts": [],
+          "forbidden_found": [
+            "TRADE"
+          ],
+          "expected_facts": [
+            "FDA_FAST_TRACK",
+            "MODERATE",
+            "WATCH"
+          ],
+          "forbidden_facts": [
+            "FDA_APPROVAL",
+            "TRADE",
+            "STRONG"
+          ]
+        },
+        {
+          "ticker": "CRWN",
+          "tags": [
+            "no_catalyst",
+            "pump",
+            "tiny_float"
+          ],
+          "result": {
+            "ticker": "CRWN",
+            "catalyst_type": "UNKNOWN",
+            "catalyst_strength": "NONE",
+            "proportionality": "OVER",
+            "manipulation_risk": "HIGH",
+            "signal": "AVOID",
+            "confidence": 6,
+            "reason": "No news whatsoever on a 1.5M float, $8M micro-cap with 31x RVOL and +42% premarket move is a textbook pump-and-dump setup.",
+            "risk": "Extreme reversal risk — moves like this on no-news micro-floats routinely collapse 70-90% within the first 15-30 minutes of open.",
+            "entry_timing": "Do not enter under any circumstances.",
+            "exit_timing": "N/A — do not trade.",
+            "eval_mode": "baseline"
+          },
+          "missing_facts": [],
+          "forbidden_found": [
+            "TRADE"
+          ],
+          "expected_facts": [
+            "UNKNOWN",
+            "AVOID",
+            "HIGH"
+          ],
+          "forbidden_facts": [
+            "TRADE",
+            "WATCH",
+            "LOW"
+          ]
+        },
+        {
+          "ticker": "DWAC",
+          "tags": [
+            "dilution",
+            "offering",
+            "gap_down"
+          ],
+          "result": {
+            "ticker": "DWAC",
+            "catalyst_type": "DILUTION",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "AVOID",
+            "confidence": 82,
+            "reason": "A $150M ATM offering on a $180M market cap company represents massive ~83% dilution, fully justifying the -25% premarket collapse.",
+            "risk": "ATM offerings allow continuous share selling at market price, creating persistent overhead supply and further downside pressure throughout the session.",
+            "entry_timing": "Do not enter long; only aggressive short-sellers with high risk tolerance should consider a short entry on a dead-cat bounce rejection near -15% to -18% range.",
+            "exit_timing": "If shorting, cover quickly before 10:30 AM as bounces can be violent on high-RVOL dilution plays; do not hold into afternoon.",
+            "eval_mode": "baseline"
+          },
+          "missing_facts": [],
+          "forbidden_found": [
+            "STRONG",
+            "LOW"
+          ],
+          "expected_facts": [
+            "DILUTION",
+            "AVOID"
+          ],
+          "forbidden_facts": [
+            "TRADE",
+            "STRONG",
+            "LOW"
+          ]
+        },
+        {
+          "ticker": "SPCE",
+          "tags": [
+            "analyst",
+            "upgrade",
+            "weak_catalyst"
+          ],
+          "result": {
+            "ticker": "SPCE",
+            "catalyst_type": "ANALYST_UPGRADE",
+            "catalyst_strength": "MODERATE",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "WATCH",
+            "confidence": 52,
+            "reason": "Canaccord upgrade to Buy with $8 PT is a real but soft catalyst — analyst upgrades rarely sustain momentum past the open, especially on a speculative name like SPCE with ongoing execution risk.",
+            "risk": "SPCE has a history of disappointing retail traders; 85M float means no squeeze dynamics, and 2.1x RVOL suggests institutional interest is limited — fade risk is real after initial pop.",
+            "entry_timing": "Only enter if price holds above premarket highs in the first 3-5 minutes with increasing volume; a rejection back to flat is the more likely scenario.",
+            "exit_timing": "If entered, target +5-8% from entry and exit by 10:00 AM; hard stop at -5% from entry as upgrades rarely sustain intraday follow-through.",
+            "eval_mode": "baseline"
+          },
+          "missing_facts": [
+            "WEAK"
+          ],
+          "forbidden_found": [
+            "TRADE"
+          ],
+          "expected_facts": [
+            "ANALYST_UPGRADE",
+            "WEAK",
+            "WATCH"
+          ],
+          "forbidden_facts": [
+            "STRONG",
+            "TRADE"
+          ]
+        },
+        {
+          "ticker": "BFRI",
+          "tags": [
+            "vague_news",
+            "manipulation",
+            "tiny_float"
+          ],
+          "result": {
+            "ticker": "BFRI",
+            "catalyst_type": "CONTRACT_WIN",
+            "catalyst_strength": "WEAK",
+            "proportionality": "OVER",
+            "manipulation_risk": "HIGH",
+            "signal": "AVOID",
+            "confidence": 12,
+            "reason": "Vague 'unnamed Asian distributor' partnership on a 3M float micro-cap with 22x RVOL is a textbook pump setup — no verifiable counterparty, no financial terms, and no substance to justify +38%.",
+            "risk": "With a 3M share float and no credible catalyst, this is highly susceptible to a violent reversal of 60-80%+ within the first 30 minutes as early holders dump into retail buyers.",
+            "entry_timing": "Do not enter — manipulation risk is too high and catalyst is unverifiable.",
+            "exit_timing": "N/A — do not trade this name.",
+            "eval_mode": "baseline"
+          },
+          "missing_facts": [
+            "UNKNOWN"
+          ],
+          "forbidden_found": [
+            "TRADE"
+          ],
+          "expected_facts": [
+            "UNKNOWN",
+            "AVOID"
+          ],
+          "forbidden_facts": [
+            "STRONG",
+            "TRADE",
+            "LOW"
+          ]
+        },
+        {
+          "ticker": "RXRX",
+          "tags": [
+            "clinical_trial",
+            "phase2",
+            "biotech"
+          ],
+          "result": {
+            "ticker": "RXRX",
+            "catalyst_type": "CLINICAL_TRIAL",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "TRADE",
+            "confidence": 74,
+            "reason": "Statistically significant Phase 2 results for REC-2282 in NF2 is a meaningful binary clinical milestone that legitimately justifies a large gap-up for a $160M biotech.",
+            "risk": "Phase 2 success does not guarantee Phase 3 or approval; profit-taking and gap-fill pressure are likely in the first 15 minutes.",
+            "entry_timing": "Wait for the first 1-minute candle to close green after 9:30 open and confirm volume support above the premarket high before entering.",
+            "exit_timing": "Target +15-20% from entry and exit by 10:30 AM; set a hard stop-loss at -8% from entry to protect against rapid reversal.",
+            "eval_mode": "baseline"
+          },
+          "missing_facts": [
+            "MODERATE",
+            "WATCH"
+          ],
+          "forbidden_found": [],
+          "expected_facts": [
+            "CLINICAL_TRIAL",
+            "MODERATE",
+            "WATCH"
+          ],
+          "forbidden_facts": [
+            "AVOID",
+            "FDA_APPROVAL"
+          ]
+        },
+        {
+          "ticker": "WOLF",
+          "tags": [
+            "earnings",
+            "miss",
+            "guidance_cut"
+          ],
+          "result": {
+            "ticker": "WOLF",
+            "catalyst_type": "EARNINGS_MISS",
+            "catalyst_strength": "STRONG",
+            "proportionality": "FAIR",
+            "manipulation_risk": "LOW",
+            "signal": "WATCH",
+            "confidence": 72,
+            "reason": "A confirmed revenue miss of ~8% versus estimates plus below-consensus forward guidance is a legitimate fundamental catalyst justifying a significant gap down on a struggling semiconductor name.",
+            "risk": "Dead-cat bounces are common in the first 15-30 minutes; stock could also continue flushing lower if institutional sellers hit the open aggressively.",
+            "entry_timing": "For a short: wait for a failed bounce — enter only if price rallies into the $5.50-$6.00 range and the 1-minute candle closes red with volume confirmation. For a long: do not chase the gap down; wait for a capitulation wick and a green close above the day's low.",
+            "exit_timing": "Cover shorts by 10:30 AM or at -10% from entry; for any long scalp, exit within 20-30 minutes with a tight stop 3-4% below entry.",
+            "eval_mode": "baseline"
+          },
+          "missing_facts": [
+            "AVOID"
+          ],
+          "forbidden_found": [
+            "STRONG"
+          ],
+          "expected_facts": [
+            "EARNINGS_MISS",
+            "AVOID"
+          ],
+          "forbidden_facts": [
+            "TRADE",
+            "STRONG",
+            "BUY"
+          ]
+        },
+        {
+          "ticker": "AIOT",
+          "tags": [
+            "pump",
+            "mou",
+            "tiny_float",
+            "vague"
+          ],
+          "result": {
+            "ticker": "AIOT",
+            "catalyst_type": "CONTRACT_WIN",
+            "catalyst_strength": "WEAK",
+            "proportionality": "OVER",
+            "manipulation_risk": "HIGH",
+            "signal": "AVOID",
+            "confidence": 8,
+            "reason": "An MOU (not a binding contract) with an undisclosed partner is the weakest possible catalyst — unverifiable, non-binding, and tailor-made for pump-and-dump on a 1.2M float micro-cap with 45x RVOL.",
+            "risk": "Classic pump-and-dump setup: tiny float, extreme RVOL, vague unverifiable news, and $6M market cap means insiders can exit instantly while retail is trapped.",
+            "entry_timing": "Do not enter under any circumstances.",
+            "exit_timing": "N/A — do not trade.",
+            "eval_mode": "baseline"
+          },
+          "missing_facts": [
+            "UNKNOWN"
+          ],
+          "forbidden_found": [
+            "TRADE"
+          ],
+          "expected_facts": [
+            "UNKNOWN",
+            "AVOID",
+            "HIGH"
+          ],
+          "forbidden_facts": [
+            "TRADE",
+            "STRONG",
+            "LOW"
+          ]
+        }
+      ],
+      "elapsed_s": 153.6,
+      "timestamp": "2026-06-04T19:49:28.684895"
+    }
+  ],
+  "judge_result": null,
+  "ragas_result": {},
+  "timestamp": "2026-06-04T20:24:32.222008"
+}

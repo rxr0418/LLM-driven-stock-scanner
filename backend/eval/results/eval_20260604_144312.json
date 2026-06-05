@@ -1,0 +1,664 @@
+[
+  {
+    "mode": "baseline",
+    "pass_rate": 52.0,
+    "passed": 13,
+    "total": 25,
+    "failures": [
+      {
+        "ticker": "MDJH",
+        "tags": [
+          "no_catalyst",
+          "pump",
+          "manipulation"
+        ],
+        "result": {
+          "ticker": "MDJH",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "OVER",
+          "manipulation_risk": "HIGH",
+          "signal": "AVOID",
+          "confidence": 5,
+          "reason": "No catalyst with a 2M share float and 25x RVOL is a textbook pump-and-dump on a $15M micro-cap with zero news.",
+          "risk": "Will likely reverse 80%+ of gains within the first 30 minutes as coordinated sellers dump into retail buyers.",
+          "entry_timing": "Do not enter under any circumstances.",
+          "exit_timing": "N/A — do not trade.",
+          "eval_mode": "baseline"
+        },
+        "missing_facts": [],
+        "forbidden_found": [
+          "TRADE"
+        ],
+        "expected_facts": [
+          "UNKNOWN",
+          "AVOID",
+          "HIGH"
+        ],
+        "forbidden_facts": [
+          "TRADE",
+          "STRONG",
+          "LOW"
+        ]
+      },
+      {
+        "ticker": "MARA",
+        "tags": [
+          "sector",
+          "crypto",
+          "bitcoin"
+        ],
+        "result": {
+          "ticker": "MARA",
+          "catalyst_type": "SECTOR_MOVE",
+          "catalyst_strength": "MODERATE",
+          "proportionality": "OVER",
+          "manipulation_risk": "LOW",
+          "signal": "WATCH",
+          "confidence": 52,
+          "reason": "MARA is a leveraged Bitcoin proxy so a 5% BTC move naturally amplifies to ~10-15% equity move, but +12% is at the high end and vulnerable to profit-taking at open.",
+          "risk": "If Bitcoin stalls or pulls back intraday, MARA will fade fast; large 95M float means no short-squeeze dynamics to sustain the move.",
+          "entry_timing": "Only enter if MARA holds above +8% in the first 5 minutes and BTC remains above $71,500 at open.",
+          "exit_timing": "Target +15-18% if momentum holds; exit by 10:30 AM or immediately if BTC drops below $71,000, stop loss at -5% from entry.",
+          "eval_mode": "baseline"
+        },
+        "missing_facts": [],
+        "forbidden_found": [
+          "HIGH"
+        ],
+        "expected_facts": [
+          "SECTOR_MOVE",
+          "WATCH"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "UNKNOWN",
+          "HIGH"
+        ]
+      },
+      {
+        "ticker": "NVAX",
+        "tags": [
+          "earnings",
+          "miss",
+          "gap_down"
+        ],
+        "result": {
+          "ticker": "NVAX",
+          "catalyst_type": "EARNINGS_MISS",
+          "catalyst_strength": "STRONG",
+          "proportionality": "FAIR",
+          "manipulation_risk": "LOW",
+          "signal": "WATCH",
+          "confidence": 72,
+          "reason": "Confirmed earnings miss plus guidance cut is a legitimate double-negative catalyst justifying a significant gap down on a small-cap biotech.",
+          "risk": "Dead-cat bounce likely in first 15 minutes but underlying fundamentals are deteriorating; do not hold long into midday.",
+          "entry_timing": "Short side only — wait for a failed bounce attempt in the first 5-10 minutes; enter short if price rallies then breaks back below the opening print.",
+          "exit_timing": "Cover short by 10:30 AM or at -10% from entry; set hard stop 5% above short entry to limit squeeze risk on thin float.",
+          "eval_mode": "baseline"
+        },
+        "missing_facts": [
+          "AVOID"
+        ],
+        "forbidden_found": [
+          "STRONG"
+        ],
+        "expected_facts": [
+          "EARNINGS_MISS",
+          "AVOID"
+        ],
+        "forbidden_facts": [
+          "TRADE",
+          "STRONG"
+        ]
+      },
+      {
+        "ticker": "ACMR",
+        "tags": [
+          "contract",
+          "semiconductor"
+        ],
+        "result": {
+          "ticker": "ACMR",
+          "catalyst_type": "CONTRACT_WIN",
+          "catalyst_strength": "STRONG",
+          "proportionality": "FAIR",
+          "manipulation_risk": "LOW",
+          "signal": "TRADE",
+          "confidence": 82,
+          "reason": "A $200M contract with TSMC represents over 2x ACMR's entire market cap, making this a highly material and company-changing revenue catalyst.",
+          "risk": "Small 6M float means extreme volatility at open — initial gap-fill selloff to +12-15% is possible before continuation, and thin liquidity can cause wide spreads.",
+          "entry_timing": "Wait for the first 1-minute candle after 9:30 to close green with volume confirmation before entering; avoid chasing the open print.",
+          "exit_timing": "Target +15-20% from entry as first exit; mandatory stop loss at -8% from entry, and exit full position by 10:30 AM regardless of position.",
+          "eval_mode": "baseline"
+        },
+        "missing_facts": [],
+        "forbidden_found": [
+          "AVOID"
+        ],
+        "expected_facts": [
+          "CONTRACT_WIN",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "UNKNOWN"
+        ]
+      },
+      {
+        "ticker": "CRWN",
+        "tags": [
+          "no_catalyst",
+          "pump",
+          "tiny_float"
+        ],
+        "result": {
+          "ticker": "CRWN",
+          "catalyst_type": "UNKNOWN",
+          "catalyst_strength": "NONE",
+          "proportionality": "OVER",
+          "manipulation_risk": "HIGH",
+          "signal": "AVOID",
+          "confidence": 6,
+          "reason": "No news on a 1.5M float, $8M micro-cap with 31x RVOL and +42% premarket move is a textbook pump-and-dump setup.",
+          "risk": "Extreme reversal risk — these setups commonly retrace 80-90% of gains within the first 15-30 minutes of open, trapping late buyers.",
+          "entry_timing": "Do not enter under any circumstances.",
+          "exit_timing": "N/A — do not trade.",
+          "eval_mode": "baseline"
+        },
+        "missing_facts": [],
+        "forbidden_found": [
+          "TRADE"
+        ],
+        "expected_facts": [
+          "UNKNOWN",
+          "AVOID",
+          "HIGH"
+        ],
+        "forbidden_facts": [
+          "TRADE",
+          "WATCH",
+          "LOW"
+        ]
+      },
+      {
+        "ticker": "DWAC",
+        "tags": [
+          "dilution",
+          "offering",
+          "gap_down"
+        ],
+        "result": {
+          "ticker": "DWAC",
+          "catalyst_type": "DILUTION",
+          "catalyst_strength": "STRONG",
+          "proportionality": "FAIR",
+          "manipulation_risk": "LOW",
+          "signal": "AVOID",
+          "confidence": 82,
+          "reason": "A $150M ATM equity offering on a $180M market cap company is massive dilution (~83% of market cap), justifying the severe -25% drop.",
+          "risk": "Continued selling pressure as arbitrageurs and existing holders exit; bounces will be sold into as ATM offering creates constant overhead supply.",
+          "entry_timing": "Do not enter long; only aggressive short traders could consider entry on a dead-cat bounce rejection after the first 5-minute candle, with very tight stops.",
+          "exit_timing": "N/A for longs — if short, cover quickly before any halt risk or squeeze; do not hold short past 10:30 AM.",
+          "eval_mode": "baseline"
+        },
+        "missing_facts": [],
+        "forbidden_found": [
+          "TRADE",
+          "STRONG",
+          "LOW"
+        ],
+        "expected_facts": [
+          "DILUTION",
+          "AVOID"
+        ],
+        "forbidden_facts": [
+          "TRADE",
+          "STRONG",
+          "LOW"
+        ]
+      },
+      {
+        "ticker": "SPCE",
+        "tags": [
+          "analyst",
+          "upgrade",
+          "weak_catalyst"
+        ],
+        "result": {
+          "ticker": "SPCE",
+          "catalyst_type": "ANALYST_UPGRADE",
+          "catalyst_strength": "MODERATE",
+          "proportionality": "FAIR",
+          "manipulation_risk": "LOW",
+          "signal": "WATCH",
+          "confidence": 52,
+          "reason": "Canaccord upgrade to Buy with $8 PT is a legitimate but non-binary catalyst on a heavily shorted, speculative name with a large 85M float that limits explosive follow-through.",
+          "risk": "Analyst upgrades on distressed space tourism stocks often fade intraday as momentum chasers sell into the news; SPCE has a long history of sharp reversals.",
+          "entry_timing": "Only enter if price holds above the premarket gap level in the first 5 minutes and shows a confirmed green 1-minute candle with volume above RVOL baseline.",
+          "exit_timing": "Target 5-10% gain from entry and exit by 10:30 AM; place stop loss at -5% from entry as upgrade momentum rarely sustains past the first hour.",
+          "eval_mode": "baseline"
+        },
+        "missing_facts": [
+          "WEAK"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "ANALYST_UPGRADE",
+          "WEAK",
+          "WATCH"
+        ],
+        "forbidden_facts": [
+          "STRONG",
+          "TRADE"
+        ]
+      },
+      {
+        "ticker": "BFRI",
+        "tags": [
+          "vague_news",
+          "manipulation",
+          "tiny_float"
+        ],
+        "result": {
+          "ticker": "BFRI",
+          "catalyst_type": "CONTRACT_WIN",
+          "catalyst_strength": "WEAK",
+          "proportionality": "OVER",
+          "manipulation_risk": "HIGH",
+          "signal": "AVOID",
+          "confidence": 12,
+          "reason": "Unnamed Asian distributor partnership on a 3M float micro-cap with 22x RVOL and +38% move is a textbook pump setup — no verifiable counterparty, no financials, no hard catalyst.",
+          "risk": "With a 3M share float and no credible named partner, this will likely reverse 60-80% of gains within the first 15-30 minutes as early holders distribute into retail FOMO buyers.",
+          "entry_timing": "Do not enter — vague partnership with unnamed entity on a micro-cap float is not a tradeable catalyst.",
+          "exit_timing": "N/A — do not trade this ticker.",
+          "eval_mode": "baseline"
+        },
+        "missing_facts": [
+          "UNKNOWN"
+        ],
+        "forbidden_found": [
+          "TRADE"
+        ],
+        "expected_facts": [
+          "UNKNOWN",
+          "AVOID"
+        ],
+        "forbidden_facts": [
+          "STRONG",
+          "TRADE",
+          "LOW"
+        ]
+      },
+      {
+        "ticker": "RXRX",
+        "tags": [
+          "clinical_trial",
+          "phase2",
+          "biotech"
+        ],
+        "result": {
+          "ticker": "RXRX",
+          "catalyst_type": "CLINICAL_TRIAL",
+          "catalyst_strength": "STRONG",
+          "proportionality": "FAIR",
+          "manipulation_risk": "LOW",
+          "signal": "TRADE",
+          "confidence": 74,
+          "reason": "Statistically significant Phase 2 results in NF2 (neurofibromatosis type 2) is a meaningful binary clinical milestone for a $160M cap biotech, justifying a substantial move.",
+          "risk": "Phase 2 success does not guarantee Phase 3 or approval; profit-taking and gap fill likely in first 15 minutes given the 28M float and overnight run.",
+          "entry_timing": "Wait for the first 1-minute candle to close green after 9:30 open and confirm hold above +18% before entering.",
+          "exit_timing": "Target exit at +30-35% or by 10:30 AM; set hard stop loss at -8% from entry to protect against rapid reversal.",
+          "eval_mode": "baseline"
+        },
+        "missing_facts": [
+          "MODERATE",
+          "WATCH"
+        ],
+        "forbidden_found": [],
+        "expected_facts": [
+          "CLINICAL_TRIAL",
+          "MODERATE",
+          "WATCH"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "FDA_APPROVAL"
+        ]
+      },
+      {
+        "ticker": "WOLF",
+        "tags": [
+          "earnings",
+          "miss",
+          "guidance_cut"
+        ],
+        "result": {
+          "ticker": "WOLF",
+          "catalyst_type": "EARNINGS_MISS",
+          "catalyst_strength": "STRONG",
+          "proportionality": "FAIR",
+          "manipulation_risk": "LOW",
+          "signal": "WATCH",
+          "confidence": 78,
+          "reason": "Double miss on revenue and forward guidance for a mid-cap semiconductor company is a legitimate and severe fundamental catalyst justifying a large gap down.",
+          "risk": "Dead-cat bounces are common on earnings gaps down; stock may spike 5-8% at open before resuming downward pressure, trapping long buyers.",
+          "entry_timing": "Short only after a failed bounce — wait for a 1-minute candle to reject resistance near premarket levels (around -18% to -20%) and roll back over before entering short.",
+          "exit_timing": "Cover shorts at new lows or by 10:30 AM; avoid holding short into any broader market rally as 11.5x RVOL can cause violent snapbacks.",
+          "eval_mode": "baseline"
+        },
+        "missing_facts": [],
+        "forbidden_found": [
+          "STRONG",
+          "BUY"
+        ],
+        "expected_facts": [
+          "EARNINGS_MISS",
+          "AVOID"
+        ],
+        "forbidden_facts": [
+          "TRADE",
+          "STRONG",
+          "BUY"
+        ]
+      },
+      {
+        "ticker": "PRGO",
+        "tags": [
+          "merger",
+          "acquisition",
+          "ma"
+        ],
+        "result": {
+          "ticker": "PRGO",
+          "catalyst_type": "MA",
+          "catalyst_strength": "STRONG",
+          "proportionality": "FAIR",
+          "manipulation_risk": "LOW",
+          "signal": "TRADE",
+          "confidence": 85,
+          "reason": "Definitive acquisition agreement by Sanofi at $32/share is a hard binary catalyst with a fixed price target, making this a classic merger arbitrage setup.",
+          "risk": "Deal risk includes regulatory approval delays or termination; stock will trade at a discount to $32 reflecting deal uncertainty and time value.",
+          "entry_timing": "Enter near the open if price holds within 1-2% of the $32 deal price; if trading significantly above $32, avoid as downside risk increases sharply.",
+          "exit_timing": "This is a merger arb play — hold toward $32 deal price or exit quickly if stock gaps above deal price at open; do not chase above $32.",
+          "eval_mode": "baseline"
+        },
+        "missing_facts": [],
+        "forbidden_found": [
+          "AVOID"
+        ],
+        "expected_facts": [
+          "MA",
+          "STRONG",
+          "TRADE"
+        ],
+        "forbidden_facts": [
+          "AVOID",
+          "UNKNOWN"
+        ]
+      },
+      {
+        "ticker": "AIOT",
+        "tags": [
+          "pump",
+          "mou",
+          "tiny_float",
+          "vague"
+        ],
+        "result": {
+          "ticker": "AIOT",
+          "catalyst_type": "CONTRACT_WIN",
+          "catalyst_strength": "WEAK",
+          "proportionality": "OVER",
+          "manipulation_risk": "HIGH",
+          "signal": "AVOID",
+          "confidence": 8,
+          "reason": "An MOU (not a binding contract) with an undisclosed partner is the weakest possible 'deal' catalyst — non-binding, unverifiable, and a classic pump trigger on a 1.2M float micro-cap.",
+          "risk": "With 45x RVOL, $6M market cap, and 1.2M float, this is textbook pump-and-dump territory; reversal of 60-80% of gains within minutes of open is highly probable.",
+          "entry_timing": "Do not enter — catalyst is unverifiable and the setup has all hallmarks of manipulation.",
+          "exit_timing": "N/A — do not trade.",
+          "eval_mode": "baseline"
+        },
+        "missing_facts": [
+          "UNKNOWN"
+        ],
+        "forbidden_found": [
+          "TRADE"
+        ],
+        "expected_facts": [
+          "UNKNOWN",
+          "AVOID",
+          "HIGH"
+        ],
+        "forbidden_facts": [
+          "TRADE",
+          "STRONG",
+          "LOW"
+        ]
+      }
+    ],
+    "elapsed_s": 151.5,
+    "timestamp": "2026-06-04T14:42:40.540647"
+  },
+  {
+    "mode": "rag_only",
+    "pass_rate": 0.0,
+    "passed": 0,
+    "total": 25,
+    "failures": [
+      {
+        "ticker": "SAVA",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "OCGN",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "MDJH",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "BBAI",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "MARA",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "NVAX",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "ACMR",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "BNGO",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "CRWN",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "ATER",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "PRAX",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "DWAC",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "SMCI",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "SPCE",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "OKLO",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "BFRI",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "RXRX",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "NVDA",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "BLPH",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "WOLF",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "BTBT",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "PRGO",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "PGEN",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "AIOT",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "EDIT",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      }
+    ],
+    "elapsed_s": 16.0,
+    "timestamp": "2026-06-04T14:42:56.514841"
+  },
+  {
+    "mode": "full",
+    "pass_rate": 0.0,
+    "passed": 0,
+    "total": 25,
+    "failures": [
+      {
+        "ticker": "SAVA",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "OCGN",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "MDJH",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "BBAI",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "MARA",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "NVAX",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "ACMR",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "BNGO",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "CRWN",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "ATER",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "PRAX",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "DWAC",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "SMCI",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "SPCE",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "OKLO",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "BFRI",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "RXRX",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "NVDA",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "BLPH",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "WOLF",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "BTBT",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "PRGO",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "PGEN",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "AIOT",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      },
+      {
+        "ticker": "EDIT",
+        "error": "get_relevant_knowledge() missing 1 required positional argument: 'catalyst_type'"
+      }
+    ],
+    "elapsed_s": 15.8,
+    "timestamp": "2026-06-04T14:43:12.336214"
+  }
+]
