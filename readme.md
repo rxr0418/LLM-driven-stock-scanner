@@ -355,6 +355,85 @@ python premarket/update_outcomes.py summary
 
 ---
 
+---
+
+## Evaluation & Experiments
+
+This project uses a four-build eval harness following the S12 framework.
+
+### Agent Components (2.1)
+
+| Component | Implementation |
+|---|---|
+| RAG | `catalyst_stats` + `knowledge` table injected into Claude prompt before each analysis |
+| MCP | Tavily MCP server (`mcp.tavily.com`) for real-time web search |
+| Tools | Finnhub API (quotes), yfinance (RVOL), Supabase (historical stats) |
+
+### Eval Directory
+
+```
+eval/
+├── golden.jsonl          # 25 hand-crafted test cases
+├── run_eval.py           # Eval runner (baseline / rag_only / full modes)
+├── judge.py              # LLM-judge with Cohen's kappa
+├── human_scores.json     # Manual human scores for kappa computation
+└── results/              # Saved eval results (JSON)
+
+tests/
+└── unit/
+    └── test_catalyst.py  # 24 pytest unit tests (LLM mocked)
+```
+
+### Golden Set
+
+25 cases covering: FDA approval vs Fast Track, earnings beat/miss, pump-and-dump, short squeeze, sector moves, M&A, dilution, analyst upgrades, and ambiguous catalyst wording.
+
+Each case has `input`, `expected_facts`, `forbidden_facts`, and `tags`.
+
+### Experiment Log
+
+| Round | Change | Pass Rate | Conclusion |
+|-------|--------|-----------|------------|
+| 0 | Baseline — no RAG, no MCP | 56% | Baseline established |
+| 1 | Added RAG (catalyst_stats + knowledge) | 56% | No change — catalyst_stats empty, RAG has nothing to inject |
+| 2 | Added Tavily MCP search | 40% | Regression — richer context made Claude overconfident on sector-move stocks; forbidden_facts false positives detected |
+
+**Note:** Round 1 result is expected and informative — RAG adds value only once `scan_results` accumulates historical outcomes (30+ cases per catalyst type). The system is designed to improve over time as data accumulates.
+
+### Metrics
+
+**RAGAS Faithfulness: 0.088**
+
+Low score is expected — `catalyst_stats` table is still accumulating data, so RAG context only contains 3 knowledge base rules. Claude's outputs draw on general financial knowledge rather than specific historical win rates. Faithfulness is projected to improve as `scan_results` accumulates over the next 4–6 weeks.
+
+**LLM-Judge: Cohen's Kappa = 0.310**
+
+| Scorer | Avg Score | Method |
+|--------|-----------|--------|
+| LLM judge (Claude Sonnet) | 2.87 / 3.0 | Strict rubric: catalyst specificity, entry/exit timing |
+| Human (author) | 2.73 / 3.0 | Practical trading utility |
+
+Kappa below target of 0.6. Root cause: LLM judge exhibits positivity bias — scored 13/15 cases at 3/3 even with strict rubric. Disagreements concentrated on ACMR, BBAI, PRAX where human rated 2 (vague entry timing) but LLM rated 3. Recommendation: cross-model judging (different model family) or larger human annotation set.
+
+**Observability:** All production Claude calls traced via Langfuse (`cloud.langfuse.com`), recording input, output, confidence scores, and MCP tool usage per analysis.
+
+### Failure Analysis
+
+**Case 1 — MDJH (pump-and-dump, failed on forbidden_facts):**
+Claude correctly output AVOID with strong reasoning ("textbook pump-and-dump"). Failed because `entry_timing` contained the phrase "Do not TRADE" — string matching flagged "TRADE" as a forbidden fact. Root cause: golden set `forbidden_facts` checks raw JSON string, not semantic intent. Fix: use field-level matching instead of full JSON string search.
+
+**Case 2 — MARA (sector move, overconfident with Tavily):**
+In `full` mode, Tavily searched for Bitcoin news and returned strong BTC bullish articles. Claude upgraded from WATCH to TRADE based on search results. Golden set expected WATCH. Root cause: additional real-time context made Claude more confident than the golden set intended. This is a real trade-off — better information can produce different (not necessarily wrong) signals.
+
+**Case 3 — NVAX (earnings miss, signal direction disagreement):**
+Claude output WATCH with detailed short strategy. Golden set expected AVOID. Claude's reasoning was technically sound (gave specific short entry). Disagreement reflects rubric ambiguity: WATCH with short instructions vs AVOID are operationally similar. Fix: add SHORT as a valid signal or relax the forbidden_facts for gap-down catalysts.
+
+### Trade-off
+
+Adding Tavily MCP search improved catalyst identification on ambiguous news cases but reduced golden set pass rate by 16pp (56% → 40%), increased average latency from ~8s to ~15s per stock, and added ~$0.003 per analysis in API costs.
+
+---
+
 ## Motivation
 
 Traditional scanners apply fixed rules regardless of market conditions. This project tests the hypothesis that regime-adaptive quantitative signals combined with LLM catalyst analysis — grounded in self-accumulated historical data — produce higher-quality candidates than any single approach alone.
