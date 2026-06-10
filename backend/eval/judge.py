@@ -232,11 +232,11 @@ def run_judge(results_path: str, n_cases: int = 15, verbose: bool = False) -> di
     print(f"  Cohen's Kappa:    {kappa:.3f}  (target ≥ 0.6)")
 
     if kappa >= 0.6:
-        print("  ✅ Kappa meets threshold — judge is reliable")
+        print("   Kappa meets threshold — judge is reliable")
     elif kappa >= 0.4:
-        print("  ⚠️  Moderate agreement — judge is usable but not reliable")
+        print("   Moderate agreement — judge is usable but not reliable")
     else:
-        print("  ❌ Low kappa — judge and human disagree significantly")
+        print("  Low kappa — judge and human disagree significantly")
         print("     Common cause: human proxy (signal direction) vs LLM judge")
         print("     (output quality) measure different things")
     print("=" * 65)
