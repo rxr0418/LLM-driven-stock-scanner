@@ -1,290 +1,307 @@
 """
-main.py - Entry point for the LLM-driven stock scanner.
+swing/main.py - Orchestrator for the Swing Trade scanner.
 
-Orchestrates the full pipeline:
-  1. Fetch price data for the universe
-  2. Detect market regime (with stability filter)
-  3. Run factor-based scan
-  4. Fetch news for top candidates
-  5. Run LLM analysis
-  6. Print and save the daily watchlist
+Phase 1 (unchanged):
+  Regime Worker → Factor Worker → top N candidates
 
-Usage:
-  python main.py                    # run full pipeline, top 10 each side
-  python main.py --top 5            # top 5 each side
-  python main.py --no-llm           # skip LLM analysis (faster, no API cost)
-  python main.py --save             # save results to JSON
+Phase 2 (new multi-agent):
+  For each candidate (parallel across tickers):
+    Search Agent + Memory Agent (parallel)
+    → merge()
+    → Decision Agent (ReAct)
+  → write decision snapshot to Supabase
+  → return ranked watchlist
+
+signal_id format: YYYYMMDD_{ticker}_{hex6}
+  Unique per scan, used by update_swing_outcomes.py for backfill matching.
 """
-import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent)) 
-import argparse
+import sys
+sys.path.append(str(Path(__file__).parent.parent))
+from database import write_decision_snapshot, write_news_evidence
+import asyncio
 import json
 import os
+import uuid
 import warnings
-from datetime import datetime
-from pathlib import Path
+from datetime import date, datetime
 
 warnings.filterwarnings("ignore")
 
-# ── Local modules ─────────────────────────────────────────────
-from swing.data       import fetch_price_data, fetch_news_batch, UNIVERSE
-from swing.regime     import detect_regime
-from swing.scanner    import run_scan
-from swing.llm_analyst import analyze_watchlist
+from data import fetch_price_data, fetch_news, fetch_market_overview, UNIVERSE
+from regime import detect_regime
+from scanner import run_scan
+from agents import (
+    search_agent_run,
+    memory_agent_run,
+    merge,
+    estimate_holding_period,
+    get_max_candidates,
+    decision_agent_run,
+)
+from agents.memory_agent import write_decision_snapshot
 
 
 # ─────────────────────────────────────────────────────────────
-# Regime stability filter
+# signal_id generator
 # ─────────────────────────────────────────────────────────────
 
-# Simple file-based persistence for regime history
-REGIME_HISTORY_FILE = Path("regime_history.json")
+def make_signal_id(ticker: str) -> str:
+    today = date.today().strftime("%Y%m%d")
+    suffix = uuid.uuid4().hex[:6]
+    return f"{today}_{ticker}_{suffix}"
 
 
-def load_regime_history() -> list:
-    """Load the last N regime detections from disk."""
-    if REGIME_HISTORY_FILE.exists():
-        try:
-            with open(REGIME_HISTORY_FILE) as f:
-                return json.load(f)
-        except Exception:
-            return []
-    return []
+# ─────────────────────────────────────────────────────────────
+# Phase 2: analyze one candidate (async wrapper)
+# ─────────────────────────────────────────────────────────────
 
-
-def save_regime_history(history: list) -> None:
-    """Save regime history to disk (keep last 5 entries)."""
-    with open(REGIME_HISTORY_FILE, "w") as f:
-        json.dump(history[-5:], f, indent=2)
-
-
-def stable_regime(current_result: dict, min_streak: int = 2) -> dict:
+async def analyze_candidate(
+    ticker: str,
+    factor_score: float,
+    signal_direction: str,
+    regime: str,
+    factors_used: list,
+) -> dict:
     """
-    Apply a stability filter to prevent rapid regime switching.
-
-    Logic:
-      - Load the last N regime detections
-      - Only switch to a new regime if it has appeared >= min_streak times
-        consecutively (including today)
-      - If the streak is not long enough, keep the previous confirmed regime
-
-    Args:
-        current_result : output of detect_regime()
-        min_streak     : how many consecutive days needed to confirm a switch
-
-    Returns:
-        regime result dict (possibly with overridden regime label)
+    Run Search Agent + Memory Agent in parallel, then Decision Agent.
+    Returns the full decision dict with signal_id attached.
     """
-    history = load_regime_history()
-    current_regime = current_result["regime"]
+    print(f"\n[phase2] {ticker} ({signal_direction}, score={factor_score:.3f})")
 
-    # Add today's detection to history
-    history.append({
-        "regime":    current_regime,
-        "timestamp": current_result["timestamp"],
-        "vix":       current_result["vix"],
-        "realized_vol": current_result["realized_vol"],
-    })
-    save_regime_history(history)
+    # Fetch Yahoo headlines (sync, fast — called before async)
+    yahoo_articles = fetch_news(ticker, max_articles=5)
 
-    # Check if current regime has been stable for min_streak days
-    recent = [h["regime"] for h in history[-min_streak:]]
-    if len(recent) < min_streak:
-        # Not enough history yet, trust current detection
-        return current_result
+    # Run Search and Memory agents in parallel via thread pool
+    loop = asyncio.get_event_loop()
 
-    if all(r == current_regime for r in recent):
-        # Streak confirmed, use current regime
-        return current_result
-    else:
-        # Streak not met, fall back to most recent confirmed regime
-        # (the one before the potential switch)
-        previous_regime = history[-2]["regime"] if len(history) >= 2 else "NEUTRAL"
+    search_future = loop.run_in_executor(
+        None,
+        search_agent_run,
+        ticker, signal_direction, factor_score, regime, yahoo_articles,
+    )
+    memory_future = loop.run_in_executor(
+        None,
+        memory_agent_run,
+        ticker, signal_direction, regime, factors_used,
+    )
 
-        if previous_regime != current_regime:
-            print(
-                f"[main] Regime stability filter: detected {current_regime} "
-                f"but streak < {min_streak} days. "
-                f"Keeping previous regime: {previous_regime}"
-            )
-            # Override regime in result
-            overridden = current_result.copy()
-            overridden["regime"] = previous_regime
-            overridden["description"] = (
-                f"[Stability filter active] Detected {current_regime} today "
-                f"but keeping {previous_regime} (need {min_streak} consecutive days to switch). "
-                + current_result["description"]
-            )
-            # Update recommended factors to match overridden regime
-            if previous_regime == "VOLATILE":
-                overridden["recommended_factors"] = [
-                    "reversal_5d", "reversal_20d", "vol_adjusted_reversal"
-                ]
-            elif previous_regime == "TRENDING":
-                overridden["recommended_factors"] = ["momentum_20d", "momentum_60d"]
-            else:
-                overridden["recommended_factors"] = [
-                    "momentum_20d", "reversal_5d", "volume_spike"
-                ]
-            return overridden
+    search_result, memory_result = await asyncio.gather(
+        search_future, memory_future
+    )
 
-        return current_result
+    # Merge context
+    context = merge(
+        ticker=ticker,
+        signal_direction=signal_direction,
+        factor_score=factor_score,
+        regime=regime,
+        search_result=search_result,
+        memory_result=memory_result,
+    )
+
+    # Decision Agent (sync — single LLM call with ReAct)
+    decision = await loop.run_in_executor(None, decision_agent_run, context)
+
+    # Attach holding period from merge utility (cross-check with agent output)
+    agent_hold = decision.get("holding_period_days", 0)
+    calc_hold = estimate_holding_period(regime, decision.get("confidence", 0))
+    # Use agent's output; fall back to calculated if agent returned 0 for a real signal
+    if agent_hold == 0 and decision.get("signal") not in ("NO_POSITION", "NEUTRAL"):
+        decision["holding_period_days"] = calc_hold
+
+    # Attach signal_id
+    decision["signal_id"] = make_signal_id(ticker)
+    decision["search_summary"] = search_result
+    decision["memory_context"] = memory_result
+
+    return decision
 
 
 # ─────────────────────────────────────────────────────────────
-# Save results
+# Full pipeline
 # ─────────────────────────────────────────────────────────────
 
-def save_results(watchlist: dict) -> str:
-    """Save watchlist to a timestamped JSON file."""
-    output_dir = Path("results")
-    output_dir.mkdir(exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filepath  = output_dir / f"watchlist_{timestamp}.json"
-
-    with open(filepath, "w") as f:
-        json.dump(watchlist, f, indent=2, ensure_ascii=False)
-
-    return str(filepath)
-
-
-# ─────────────────────────────────────────────────────────────
-# Main pipeline
-# ─────────────────────────────────────────────────────────────
-
-def run_pipeline(top_n: int = 10, use_llm: bool = True, save: bool = False, save_db: bool = False) -> dict:
+async def run_full_pipeline(
+    top_n: int = 5,
+    lang: str = "en",
+) -> dict:
     """
-    Run the full scanner pipeline end-to-end.
+    Run the complete swing trade pipeline.
 
-    Args:
-        top_n   : number of candidates per side (long/short)
-        use_llm : whether to run LLM news analysis
-        save    : whether to save results to disk
+    Phase 1: regime detection + factor scan → top_n candidates per side
+    Phase 2: multi-agent analysis for each candidate (parallel)
 
-    Returns:
-        watchlist dict (or scan_results if use_llm=False)
+    Returns watchlist dict compatible with existing API response format.
     """
-    print("\n" + "=" * 60)
-    print("LLM-DRIVEN STOCK SCANNER")
-    print(f"Run time : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Universe : {len(UNIVERSE)} stocks")
-    print(f"Top N    : {top_n} per side")
-    print(f"LLM      : {'enabled' if use_llm else 'disabled'}")
-    print("=" * 60 + "\n")
+    print("=" * 60)
+    print(f"[swing] Starting full pipeline — {datetime.now():%Y-%m-%d %H:%M}")
+    print("=" * 60)
 
-    # ── Step 1: Price data ────────────────────────────────────
-    print("Step 1/5 — Fetching price data...")
+    # ── Phase 1 ───────────────────────────────────────────────
+    print("\n[phase1] Detecting regime...")
+    regime_result = detect_regime()
+    regime = regime_result["regime"]
+    print(f"[phase1] Regime: {regime}")
+
+    print(f"\n[phase1] Fetching price data for {len(UNIVERSE)} tickers...")
     price_data = fetch_price_data(UNIVERSE, lookback_days=90)
-    if not price_data or price_data["close"].empty:
-        print("[main] ERROR: Failed to fetch price data. Aborting.")
-        return {}
-    n_days   = price_data["close"].shape[0]
-    n_stocks = price_data["close"].shape[1]
-    print(f"         Got {n_days} trading days × {n_stocks} stocks\n")
 
-    # ── Step 2: Regime detection ──────────────────────────────
-    print("Step 2/5 — Detecting market regime...")
-    raw_regime    = detect_regime()
-    regime_result = stable_regime(raw_regime, min_streak=2)
+    print("\n[phase1] Running factor scan...")
+    # Respect regime-adjusted candidate count
+    max_candidates = get_max_candidates(regime)
+    scan_results = run_scan(price_data, regime_result, top_n=max_candidates)
 
-    print(f"         Raw regime      : {raw_regime['regime']}")
-    print(f"         Stable regime   : {regime_result['regime']}")
-    print(f"         VIX             : {regime_result['vix']}")
-    print(f"         Realized Vol    : {regime_result['realized_vol']:.2%}")
-    print(f"         Trend Strength  : {regime_result['trend_strength']:.0%}")
-    print(f"         Recommended     : {regime_result['recommended_factors']}\n")
-
-    # ── Step 3: Factor scan ───────────────────────────────────
-    print("Step 3/5 — Running factor scan...")
-    scan_results = run_scan(price_data, regime_result, top_n=top_n)
     if "error" in scan_results:
-        print(f"[main] ERROR: {scan_results['error']}")
-        return {}
+        return {"error": scan_results["error"]}
 
-    long_tickers  = [x["ticker"] for x in scan_results["long_candidates"]]
-    short_tickers = [x["ticker"] for x in scan_results["short_candidates"]]
-    print(f"         Long  : {long_tickers}")
-    print(f"         Short : {short_tickers}\n")
+    factors_used = scan_results.get("factors_used", [])
+    long_candidates = scan_results.get("long_candidates", [])[:top_n]
+    short_candidates = scan_results.get("short_candidates", [])[:top_n]
 
-    # ── Step 4: News fetch ────────────────────────────────────
-    print("Step 4/5 — Fetching news...")
-    all_candidates = long_tickers + short_tickers
-    news_data      = fetch_news_batch(all_candidates, max_articles=5)
-    n_with_news    = sum(1 for t in all_candidates if news_data.get(t))
-    print(f"         Got news for {n_with_news}/{len(all_candidates)} candidates\n")
+    print(f"\n[phase1] Top {len(long_candidates)} long, {len(short_candidates)} short candidates selected")
 
-    # ── Step 5: LLM analysis ──────────────────────────────────
-    if use_llm:
-        print("Step 5/5 — Running LLM analysis...")
-        watchlist = analyze_watchlist(scan_results, news_data, top_n=top_n)
-        print_watchlist(watchlist)
-    else:
-        print("Step 5/5 — LLM analysis skipped (--no-llm flag)\n")
-        # Print factor-only results
-        print("\n" + "=" * 60)
-        print("FACTOR-ONLY WATCHLIST (no LLM analysis)")
-        print("=" * 60)
-        print(f"Regime  : {scan_results['regime']}")
-        print(f"Factors : {scan_results['factors_used']}")
-        print(f"\nLONG candidates:")
-        for item in scan_results["long_candidates"]:
-            print(f"  {item['ticker']:<8} score={item['score']:.4f}")
-        print(f"\nSHORT candidates:")
-        for item in scan_results["short_candidates"]:
-            print(f"  {item['ticker']:<8} score={item['score']:.4f}")
-        print("=" * 60)
-        watchlist = scan_results
+    # ── Phase 2 ───────────────────────────────────────────────
+    print("\n[phase2] Starting multi-agent analysis...")
 
-    # ── Save results ──────────────────────────────────────────
-    if save:
-        filepath = save_results(watchlist)
-        print(f"\n[main] Results saved to {filepath}")
+    tasks = []
+    for item in long_candidates:
+        tasks.append(analyze_candidate(
+            ticker=item["ticker"],
+            factor_score=item["score"],
+            signal_direction="LONG",
+            regime=regime,
+            factors_used=factors_used,
+        ))
+    for item in short_candidates:
+        tasks.append(analyze_candidate(
+            ticker=item["ticker"],
+            factor_score=item["score"],
+            signal_direction="SHORT",
+            regime=regime,
+            factors_used=factors_used,
+        ))
 
-    # ── Save to Supabase ──────────────────────────────────────
-    if save_db:
+    decisions = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # ── Process results ───────────────────────────────────────
+    long_watchlist = []
+    short_watchlist = []
+    
+    for i, decision in enumerate(decisions):
+        if isinstance(decision, Exception):
+            print(f"[phase2] Task {i} failed: {decision}")
+            continue
+
+        ticker = decision.get("ticker", "UNKNOWN")
+        is_long = i < len(long_candidates)
+
+        # Write to Supabase
+        # Get price at scan from price_data if available
         try:
-            from database import log_swing_results
-            log_swing_results(watchlist)
-        except Exception as e:
-            print(f"[main] Supabase logging failed: {e}")
+            price_at_scan = float(
+                price_data["close"][ticker].iloc[-1]
+            ) if ticker in price_data.get("close", {}) else 0.0
+        except Exception:
+            price_at_scan = 0.0
 
-    return watchlist
+        write_decision_snapshot(
+            signal_id=decision["signal_id"],
+            ticker=ticker,
+            signal=decision.get("signal", "NEUTRAL"),
+            confidence=decision.get("confidence", 0),
+            regime=regime,
+            factors_used=factors_used,
+            holding_period_days=decision.get("holding_period_days", 0),
+            search_summary=decision.get("search_summary", {}),
+            memory_context=decision.get("memory_context", {}),
+            react_trace=decision.get("full_react_output", ""),
+            price_at_scan=price_at_scan,
+        )
+        write_news_evidence(
+            signal_id=decision["signal_id"],
+            ticker=ticker,
+            sources=decision.get("search_summary", {}).get("sources", []),
+        )
+
+        # Format for watchlist output
+        formatted = {
+            "ticker":               ticker,
+            "factor_score":         decision.get("factor_score", 0),
+            "signal":               decision.get("signal", "NEUTRAL"),
+            "confidence":           decision.get("confidence", 0),
+            "news_alignment":       decision.get("news_alignment", "NEUTRAL"),
+            "reason":               decision.get("reason", ""),
+            "risk_flag":            decision.get("risk_flag", "none"),
+            "holding_period_days":  decision.get("holding_period_days", 0),
+            "signal_id":            decision.get("signal_id", ""),
+        }
+
+        if is_long:
+            long_watchlist.append(formatted)
+        else:
+            short_watchlist.append(formatted)
+
+    # Sort: NO_POSITION last, then by confidence desc
+    def sort_key(x):
+        is_pass = x["signal"] in ("NO_POSITION", "NEUTRAL")
+        return (is_pass, -x["confidence"])
+
+    long_watchlist.sort(key=sort_key)
+    short_watchlist.sort(key=sort_key)
+
+    return {
+        "regime":          regime,
+        "description":     regime_result.get("description", ""),
+        "factors_used":    factors_used,
+        "timestamp":       datetime.now().isoformat(),
+        "long_watchlist":  long_watchlist,
+        "short_watchlist": short_watchlist,
+    }
 
 
 # ─────────────────────────────────────────────────────────────
-# CLI entry point
+# Factor scan only (Phase 1, no LLM) — keeps existing API intact
 # ─────────────────────────────────────────────────────────────
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="LLM-driven stock scanner with regime-adaptive factor selection"
-    )
-    parser.add_argument(
-        "--top", type=int, default=10,
-        help="Number of candidates per side (default: 10)"
-    )
-    parser.add_argument(
-        "--no-llm", action="store_true",
-        help="Skip LLM analysis (faster, no API cost)"
-    )
-    parser.add_argument(
-        "--save", action="store_true",
-        help="Save results to results/watchlist_TIMESTAMP.json"
-    )
-    parser.add_argument(
-        "--save-db", action="store_true",
-        help="Save results to Supabase for data accumulation"
-    )
-    return parser.parse_args()
+def run_factor_scan(top_n: int = 10) -> dict:
+    """
+    Phase 1 only — factor scores without LLM analysis.
+    Called by the existing /api/scan endpoint.
+    """
+    regime_result = detect_regime()
+    price_data = fetch_price_data(UNIVERSE, lookback_days=90)
+    return run_scan(price_data, regime_result, top_n=top_n)
 
+
+# ─────────────────────────────────────────────────────────────
+# Entry point
+# ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    args = parse_args()
-    run_pipeline(
-        top_n   = args.top,
-        use_llm = not args.no_llm,
-        save    = args.save,
-        save_db = args.save_db,
-    )
+    import sys
+    top_n = int(sys.argv[1]) if len(sys.argv) > 1 else 3
+
+    result = asyncio.run(run_full_pipeline(top_n=top_n))
+
+    if "error" in result:
+        print(f"\nError: {result['error']}")
+        sys.exit(1)
+
+    print("\n" + "=" * 60)
+    print("SWING TRADE WATCHLIST")
+    print("=" * 60)
+    print(f"Regime  : {result['regime']}")
+    print(f"Factors : {result['factors_used']}")
+
+    print("\n── LONG ──")
+    for item in result["long_watchlist"]:
+        hold = f"hold={item['holding_period_days']}d" if item['holding_period_days'] else "skip"
+        print(f"  {item['ticker']:<6} {item['signal']:<12} conf={item['confidence']:>3}% "
+              f"{hold}  {item['reason']}")
+
+    print("\n── SHORT ──")
+    for item in result["short_watchlist"]:
+        hold = f"hold={item['holding_period_days']}d" if item['holding_period_days'] else "skip"
+        print(f"  {item['ticker']:<6} {item['signal']:<12} conf={item['confidence']:>3}% "
+              f"{hold}  {item['reason']}")
