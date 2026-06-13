@@ -1,6 +1,6 @@
 # LLM-Driven Stock Scanner
 
-A full-stack stock scanner combining **regime-adaptive factor selection**, **premarket momentum detection**, and **LLM-powered catalyst analysis** to surface actionable trading candidates. Includes a **RAG pipeline** that grounds LLM analysis in self-accumulated historical trade data.
+A full-stack stock scanner combining **regime-adaptive factor selection**, **premarket momentum detection**, and **LLM-powered catalyst analysis** to surface actionable trading candidates. The swing trade pipeline uses a **multi-agent architecture** (Search Agent + Memory Agent + Decision Agent with ReAct reasoning) grounded in self-accumulated historical trade data.
 
 ---
 
@@ -8,19 +8,21 @@ A full-stack stock scanner combining **regime-adaptive factor selection**, **pre
 
 **Swing Trade mode** — runs daily before market open:
 1. Detects the current market regime (TRENDING / VOLATILE / NEUTRAL) using VIX, realized volatility, and trend consistency
-2. Selects factor signals based on regime — momentum in trending markets, reversal in volatile markets
-3. Scores and ranks S&P 500 stocks cross-sectionally
-4. Fetches recent news for top candidates
-5. Uses Claude (Anthropic) to analyze whether news supports or contradicts each factor signal
-6. Outputs a ranked watchlist with signal, confidence score, and one-line reason per stock
+2. Selects and weights factors based on regime — momentum in trending markets, reversal in volatile markets
+3. Scores and ranks all S&P 500 stocks (~478) cross-sectionally, selects top N candidates per side
+4. For each candidate, runs a three-agent pipeline in parallel:
+   - **Search Agent** fetches Yahoo Finance headlines, assesses quality, and calls Tavily if more context is needed (ReAct loop, max 3 searches)
+   - **Memory Agent** queries historical win rates from Supabase and retrieves relevant trading rules (ReAct loop with fallback query strategy)
+   - **Decision Agent** synthesizes all context via explicit Thought → Action reasoning and outputs signal, confidence, reason, and holding period
+5. Writes a full decision snapshot (catalyst summary, memory context, ReAct trace) to Supabase for future learning
+6. Outputs a ranked watchlist with `NO_POSITION` for low-conviction or high-risk candidates
 
 **Day Trade mode** — runs during premarket (4:00–9:30 AM ET):
 1. Loads a pre-filtered universe of 1,000+ small-cap stocks (market cap < $300M)
 2. Fetches real-time premarket quotes from Finnhub for each ticker
 3. Filters by price, float, premarket change %, volume, dollar amount, and RVOL
-4. All filter parameters are user-configurable via a custom scan UI with input validation
-5. LLM deep scan analyzes catalyst quality and outputs TRADE / WATCH / AVOID signals with entry timing
-6. Scan results are logged to Supabase PostgreSQL for historical analysis and RAG
+4. LLM deep scan (MCP agentic pipeline) analyzes catalyst quality and outputs TRADE / WATCH / AVOID signals with entry timing
+5. Scan results are logged to Supabase for historical analysis and RAG
 
 ---
 
@@ -42,13 +44,13 @@ Factors : momentum_20d + reversal_5d + volume_spike
 VIX     : 18.4 | Realized Vol: 10.7% | Trend: 55%
 
 LONG CANDIDATES
-  ADBE  | BUY     | conf=72% | Agentic AI expansion supports momentum; Figma competition warrants caution.
-  QCOM  | BUY     | conf=62% | Rebound thesis intact but ARM competition noted.
-  BA    | NEUTRAL | conf=42% | China deal disappointed; share slide contradicts perfect factor score.
+  GS    | STRONG_BUY | conf=88% | hold=5d | SpaceX IPO underwriting confirms momentum; 53% win rate across 38 cases.
+  ADBE  | BUY        | conf=72% | hold=5d | Agentic AI expansion supports momentum; Figma competition warrants caution.
+  BA    | NO_POSITION| conf= 0% | skip    | China deal disappointed; news contradicts factor signal.
 
 SHORT CANDIDATES
-  LLY   | AVOID   | conf=62% | Q1 guidance upgrade and obesity trial results contradict short signal.
-  NFLX  | AVOID   | conf=38% | Raised guidance and 283% analyst upside directly contradict short.
+  ULTA  | SHORT      | conf=65% | hold=3d | 23% price decline and weakest factor score; no bullish catalyst.
+  CBOE  | NO_POSITION| conf= 0% | skip    | SpaceX options listing contradicts short signal.
 ```
 
 **Day Trade (premarket)**
@@ -61,7 +63,6 @@ SHORT CANDIDATES
 
   OCGN  | WATCH | conf=45% | FDA Fast Track is NOT approval — +22% likely overreaction, expect gap fill.
          +12.1%  RVOL=5.2x  Vol=280K sh  Float=8M sh   Risk=MEDIUM
-         Entry: Only enter if holds above +15% in first 5 minutes.
 
   MDJH  | AVOID | conf=15% | No catalyst + 2M float + 25x RVOL = classic pump-and-dump pattern.
          +35.0%  RVOL=25x   Vol=180K sh  Float=2M sh   Risk=HIGH
@@ -69,51 +70,102 @@ SHORT CANDIDATES
 
 ---
 
-## RAG Pipeline
+## Multi-Agent Architecture (Swing Trade)
 
-The scanner accumulates its own historical trade data in Supabase PostgreSQL and uses it to ground LLM analysis in empirical evidence rather than general knowledge.
-
-### How It Works
+The swing trade pipeline uses a two-phase design:
 
 ```
-Every scan:
-  Results → Supabase (scan_results table)
+Phase 1 — Stock Selection (deterministic)
+  Regime Worker   → VIX + realized vol + LLM border judgment → regime label + factor weights
+  Factor Worker   → cross-sectional IC scoring → top N candidates per side
 
-Every day at 10:00 AM ET:
-  update_outcomes.py fetches 1-min bars from yfinance
-  Computes open_return = (price at 10:00 AM - open price) / open price
-  Sets outcome = WIN / LOSS / NEUTRAL based on signal vs actual move
-  Writes back to Supabase
-
-Before each LLM analysis:
-  get_historical_context() queries catalyst_stats view
-  get_relevant_knowledge() retrieves matching rules from knowledge table
-  Both are injected into the Claude prompt
+Phase 2 — Per-Ticker Analysis (parallel across candidates)
+  ┌─────────────────────────┐    ┌─────────────────────────────────────┐
+  │     Search Agent        │    │          Memory Agent               │
+  │  Finnhub headline       │    │  catalyst_stats SQL (with fallback) │
+  │  → assess quality       │    │  knowledge rules                    │
+  │  → Tavily if needed     │    │  cross-session persistent memory    │
+  │  (ReAct, max 3 calls)   │    │  (ReAct, tiered query strategy)     │
+  └──────────┬──────────────┘    └──────────────┬──────────────────────┘
+             │                                  │
+             └──────────── merge() ─────────────┘
+                               │
+                    ┌──────────▼──────────────┐
+                    │    Decision Agent        │
+                    │  Thought → Action →      │
+                    │  Final signal            │
+                    │  (ReAct, single pass)    │
+                    └──────────┬──────────────┘
+                               │
+                    ┌──────────▼──────────────┐
+                    │  Supabase + Langfuse     │
+                    │  decision snapshot       │
+                    │  + news evidence         │
+                    └─────────────────────────┘
 ```
 
-### What Gets Injected into the LLM Prompt
+### Agent Design Principles
 
+**Search Agent** owns all information gathering for a ticker. It reads Yahoo Finance headlines first, then decides whether to call Tavily for additional context. Before classifying `catalyst_type`, it explicitly lists all headlines seen and identifies the highest-impact event — preventing the first headline from dominating the classification.
+
+**Memory Agent** uses a tiered query strategy to avoid cross-market error transfer:
 ```
-=== OUR HISTORICAL DATA (FDA_APPROVAL, 47 cases) ===
-  Win rate:        73%
-  Avg open return: +12.4%
-  Sample size:     47 trades
-
-=== OUR KNOWLEDGE BASE ===
-  - FDA Fast Track is NOT approval. Stocks often reverse 50%+ of premarket gains at open.
-  - No news + float < 5M shares + RVOL > 10x = high probability pump and dump. Avoid.
-  - Bitcoin miners (MARA, RIOT, CLSK) move together. Use BTC price as leading indicator.
+1. (regime, signal)        → most specific, use if sample_size ≥ 10
+2. (signal only)           → broader, use if step 1 fails
+3. knowledge rules only    → fallback when no reliable stats exist
 ```
 
-This transforms LLM output from generic financial commentary into analysis grounded in the system's own track record.
+**Decision Agent** uses ReAct for explicit reasoning chains, visible in Langfuse. Outputs `NO_POSITION` when information is insufficient, regime is volatile with weak signal, or a binary risk event is detected. Also outputs `holding_period_days` calibrated to regime (1–3d volatile, 3–5d neutral, 5–10d trending).
 
-### Database Schema (Supabase PostgreSQL + pgvector)
+**merge()** is pure Python — no LLM call. It gates historical stats injection by `confidence_in_prior` (only injects when `sample_size ≥ 10`) and adjusts candidate count by regime (6 in volatile, 8 in neutral, 10 in trending).
+
+### MCP Pipeline (Day Trade)
+
+The premarket deep scan uses Anthropic's beta MCP API, giving Claude autonomous tool access rather than pre-injecting fixed context:
+
+```python
+client.beta.messages.create(
+    mcp_servers=[
+        {"type": "url", "url": "https://mcp.tavily.com/...", "name": "tavily"},
+        {"type": "url", "url": "https://mcp.supabase.com/...", "name": "supabase"},
+    ],
+    messages=[...]
+)
+```
+
+Claude decides at inference time whether to call `tavily_search` or query `catalyst_stats` directly. A strong, unambiguous catalyst requires no extra tool calls; an ambiguous headline triggers both. All tool call sequences are traced in Langfuse.
+
+---
+
+## Memory & Learning Loop
+
+```
+Daily scan
+  → Decision Agent produces signal
+  → write_decision_snapshot() writes to swing_results:
+      signal_id, catalyst_summary, memory_context, react_trace, price_at_scan
+
+Daily at close (update_swing_outcomes.py)
+  → fetch actual price at 5d / 10d / 20d
+  → compute return, classify WIN / LOSS / NEUTRAL
+  → backfill swing_results matched by signal_id
+
+Next scan
+  → Memory Agent queries swing_stats view (auto-updated)
+  → win rates and avg returns reflect real accumulated outcomes
+  → system improves as data accumulates
+```
+
+### Database Schema
 
 ```sql
-scan_results   -- premarket scan history with outcomes
-news           -- news articles with vector embeddings (future semantic search)
-knowledge      -- manually curated rules and observations
-catalyst_stats -- auto-computed view: win rate and avg return by catalyst type
+swing_results      -- per-signal decisions with full decision snapshot (JSONB)
+swing_news         -- news sources used per signal (for evidence tracing)
+swing_stats        -- view: win rate + avg return by regime × signal
+knowledge          -- curated trading rules injected into Memory Agent
+scan_results       -- premarket scan history with outcomes
+catalyst_stats     -- view: win rate by catalyst type (premarket)
+news               -- news articles with vector embeddings (pgvector)
 ```
 
 ---
@@ -129,55 +181,91 @@ Factor effectiveness depends on market environment. Empirical research on this d
 | 2019–2023 | Trending (low VIX) | momentum_20d | +0.030 |
 | 2025–2026 | Volatile (tariff shock) | reversal_20d | +0.037 |
 
-This regime-switching insight was discovered organically through systematic backtesting across 50+ factor variants, not assumed in advance.
+Regime output includes factor weights that are passed directly to Factor Worker, so the same factor can receive different weights depending on market conditions — not just on/off switching.
 
-### Why Small-Cap for Day Trade?
+### LLM Role: Classifier, Verifier, and ReAct Reasoner
 
-Small-cap stocks (market cap < $300M, float < 20M shares) are the primary target because the same dollar volume produces a proportionally larger price move. With 5M shares of float, $500K of buying pressure can move a stock 10%+.
+In Swing Trade, LLM acts as a **signal modifier** — factor signals are forward-looking but news and historical context can confirm, weaken, or negate them. The Decision Agent's explicit Thought chain makes the reasoning auditable and eval-able beyond just checking the final signal.
 
-### LLM Role: Classifier and Verifier, Not Calculator
+In Day Trade, LLM acts as a **catalyst verifier** — distinguishing FDA approval from FDA Fast Track, judging price proportionality, and flagging manipulation risk.
 
-In Swing Trade, LLM acts as a **signal negator** — factor signals are forward-looking but news can override them. In Day Trade, LLM acts as a **catalyst verifier** — it distinguishes FDA approval from FDA Fast Track, judges whether price moves are proportional to catalysts, and flags manipulation risk.
+Factor computation stays in deterministic Python. LLM is only applied where language understanding and judgment matter.
 
-Factor computation stays in deterministic Python code. LLM is only applied where language understanding matters.
+### NO_POSITION as a Signal
 
-### RVOL as the Core Day Trade Signal
+The Decision Agent is designed to pass when the edge is unclear. `NO_POSITION` is triggered when:
+- `catalyst_strength = NONE` and `news_alignment = NEUTRAL/CONTRADICTS`
+- A binary risk event (earnings, FDA decision) is imminent
+- Regime is VOLATILE and factor signal is weak
+- `confidence_in_prior = NONE` and catalyst is ambiguous
 
-RVOL (today's volume / expected volume at this time of day) surfaces genuine anomalies across stocks of different sizes, time-adjusted for premarket vs. intraday sessions using 20-day historical baselines.
+Outputting fewer, higher-conviction signals is preferable to forcing 10 candidates regardless of evidence quality.
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                      FastAPI (api.py)                        │
-│           Swing Trade endpoints + Day Trade endpoints        │
-└──────┬───────────────────────────────┬────────────────────────┘
-       │                               │
-       ▼                               ▼
-  swing/                         premarket/
-  ─────────────────────          ──────────────────────────
-  data.py       OHLCV+news       premarket_data.py
-  regime.py     Regime detect      Universe, quotes, RVOL
-  scanner.py    Factor scores     premarket_catalyst.py
-  llm_analyst.py LLM analysis       LLM catalyst analysis
-  main.py       Orchestration     premarket_scanner.py
-                                    Scoring and ranking
-                               ↓
-                         database.py
-                         Supabase PostgreSQL
-                         scan_results / news / knowledge
-                               ↑
-                         update_outcomes.py
-                         Daily outcome backfill (10 AM ET)
+┌─────────────────────────────────────────────────────────────────┐
+│                       FastAPI (api.py)                          │
+│             Swing Trade endpoints + Day Trade endpoints         │
+└──────┬──────────────────────────────────────┬────────────────────┘
+       │                                      │
+       ▼                                      ▼
+  swing/                                premarket/
+  ────────────────────────────          ────────────────────────────
+  data.py          OHLCV + news         premarket_data.py
+  regime.py        Regime detect          Universe, quotes, RVOL
+  scanner.py       Factor scores         premarket_catalyst.py
+  agents/          Phase 2 agents          MCP agentic pipeline
+  ├ search_agent.py  ReAct + Tavily      premarket_scanner.py
+  ├ memory_agent.py  ReAct + SQL           Scoring and ranking
+  ├ merge.py         Context trim         update_outcomes.py
+  └ decision_agent.py  Signal + hold        Daily outcome backfill
+  main.py          Orchestration
+  update_swing_outcomes.py
+                                         ↓
+                                   database.py
+                                   Supabase PostgreSQL
+                                   swing_results / scan_results
+                                   knowledge / news / swing_news
 
-┌──────────────────────────────────────────────────────────────┐
-│                   React Frontend (Vite)                      │
-│     Swing Trade tab              Day Trade tab               │
-│     Factor Scan                  Custom Scan (14 params)     │
-│     Full Scan (LLM)              Deep Scan (LLM + RAG)       │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    React Frontend (Vite)                        │
+│    Swing Trade tab                   Day Trade tab              │
+│    Factor Scan (Phase 1)             Custom Scan (14 params)    │
+│    Full Scan (multi-agent)           Deep Scan (MCP + RAG)      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+```
+scanner/
+├── backend/
+│   ├── api.py                        # FastAPI entry point
+│   ├── database.py                   # Supabase access layer (read + write)
+│   ├── swing/
+│   │   ├── data.py                   # OHLCV + Yahoo news (yfinance)
+│   │   ├── regime.py                 # Regime detection + LLM border judgment
+│   │   ├── scanner.py                # Factor computation + cross-sectional ranking
+│   │   ├── agents/
+│   │   │   ├── search_agent.py       # ReAct: Yahoo → assess → Tavily (max 3)
+│   │   │   ├── memory_agent.py       # ReAct: tiered SQL + knowledge rules
+│   │   │   ├── merge.py              # Context assembly + regime gating (pure Python)
+│   │   │   └── decision_agent.py     # ReAct: final signal + holding period
+│   │   ├── main.py                   # Phase 1 + Phase 2 orchestration (asyncio)
+│   │   └── update_swing_outcomes.py  # Daily outcome backfill (5d/10d/20d)
+│   └── premarket/
+│       ├── premarket_data.py         # Universe, Finnhub quotes, RVOL
+│       ├── premarket_catalyst.py     # MCP agentic pipeline (Tavily + Supabase)
+│       ├── premarket_scanner.py      # Scoring, ranking, Supabase logging
+│       ├── update_outcomes.py        # Daily outcome backfill (30-min open return)
+│       ├── small_cap_300m.json       # Pre-filtered universe (<$300M)
+│       └── small_cap_100m.json       # Tighter universe (<$100M)
+├── frontend/
+│   └── src/
+│       ├── App.jsx                   # React app (Swing + Day Trade tabs)
+│       └── App.css
+└── README.md
 ```
 
 **Deployment:** Backend on Railway, frontend on Vercel, database on Supabase.
@@ -192,7 +280,7 @@ RVOL (today's volume / expected volume at this time of day) surfaces genuine ano
 | Realized Vol (20d) | ≥ 20% annualized | ≤ 12% annualized |
 | Trend Consistency (20d) | ≤ 40% days aligned | ≥ 60% days aligned |
 
-A **stability filter** prevents rapid switching: a new regime must persist for 2+ consecutive days before being confirmed.
+A **stability filter** prevents rapid switching: a new regime must persist for 2+ consecutive days before being confirmed. At the border between regimes, LLM judgment is used to resolve ambiguity using recent macro context.
 
 ---
 
@@ -227,14 +315,13 @@ A **stability filter** prevents rapid switching: a new regime must persist for 2
 
 **LLM catalyst output fields:**
 ```
-catalyst_type      FDA_APPROVAL / FDA_FAST_TRACK / EARNINGS_BEAT / CONTRACT_WIN / ...
+catalyst_type      FDA_APPROVAL / FDA_FAST_TRACK / EARNINGS_BEAT / CONTRACT_WIN / DEAL_WIN / ...
 catalyst_strength  STRONG / MODERATE / WEAK / NONE
-proportionality    OVER / FAIR / UNDER  (is the price move justified?)
+proportionality    OVER / FAIR / UNDER
 manipulation_risk  HIGH / MEDIUM / LOW
 signal             TRADE / WATCH / AVOID
 confidence         0–100
 reason             one sentence
-risk               main risk at open
 entry_timing       specific entry suggestion
 ```
 
@@ -242,50 +329,29 @@ entry_timing       specific entry suggestion
 
 ## LLM Prompt Engineering
 
+**Swing Trade Decision Agent prompt** includes:
+- Factor score and regime context
+- Search Agent catalyst summary (type, strength, alignment, risk flags)
+- Memory Agent historical stats (gated by sample_size ≥ 10) and knowledge rules
+- Regime-specific holding period hint
+- Few-shot examples covering STRONG_BUY, NO_POSITION (binary risk), NO_POSITION (weak signal)
+- Explicit ReAct format requirement with Thought chain before final JSON
+
 **Day Trade prompt** includes:
-- Critical distinction between FDA approval and FDA Fast Track designation
-- Proportionality judgment (is +30% justified by the catalyst?)
-- Manipulation risk assessment (no news + tiny float + extreme RVOL)
-- Specific entry timing advice
-- Injected RAG context from historical database
+- Critical distinction between FDA approval and FDA Fast Track
+- Proportionality judgment
+- Manipulation risk assessment
+- Entry timing advice
+- RAG context from historical database
 
-**Confidence calibration:**
+**Confidence calibration (Swing Trade):**
 ```
-85–100: Binary catalyst confirmed (FDA approval text, signed acquisition)
-70–84 : Strong company-specific catalyst
-50–69 : Moderate catalyst, uncertain follow-through
-30–49 : Weak catalyst or proportionality mismatch
-10–29 : No real catalyst or disproportionate move
- 0–9  : Active manipulation signals
-```
-
----
-
-## Project Structure
-
-```
-scanner/
-├── backend/
-│   ├── api.py                     # FastAPI entry point
-│   ├── database.py                # Supabase access layer (RAG)
-│   ├── swing/
-│   │   ├── data.py                # OHLCV + news fetch
-│   │   ├── regime.py              # Regime detection
-│   │   ├── scanner.py             # Factor computation
-│   │   ├── llm_analyst.py         # LLM news analysis
-│   │   └── main.py                # Pipeline orchestration
-│   └── premarket/
-│       ├── premarket_data.py      # Universe, quotes, RVOL
-│       ├── premarket_catalyst.py  # LLM catalyst analysis + RAG injection
-│       ├── premarket_scanner.py   # Scoring, ranking, history logging
-│       ├── update_outcomes.py     # Daily outcome backfill script
-│       ├── small_cap_300m.json    # Pre-filtered universe (<$300M)
-│       └── small_cap_100m.json    # Tighter universe (<$100M)
-├── frontend/
-│   └── src/
-│       ├── App.jsx                # React app (Swing + Day Trade tabs)
-│       └── App.css
-└── README.md
+85–100: Factor + news both strongly confirm + reliable historical stats
+70–84 : Factor confirmed by news, moderate historical support
+50–69 : Factor signal only, neutral news, limited history
+30–49 : Mixed signals or contradicting news
+10–29 : News contradicts signal or major risk present
+ 0    : NO_POSITION — active risk event or insufficient information
 ```
 
 ---
@@ -300,6 +366,7 @@ pip install -r requirements.txt
 ```bash
 export ANTHROPIC_API_KEY="your-anthropic-key"
 export FINNHUB_API_KEY="your-finnhub-key"
+export TAVILY_API_KEY="your-tavily-key"
 export SUPABASE_URL="postgresql://postgres.xxx:password@aws-1-us-west-1.pooler.supabase.com:5432/postgres"
 ```
 
@@ -313,10 +380,10 @@ cd frontend && npm install && npm run dev
 
 **Daily workflow:**
 ```bash
-# At 10:00 AM ET — auto-fill open returns and outcomes
-python premarket/update_outcomes.py
+# Swing trade outcome backfill (after close)
+python swing/update_swing_outcomes.py
 
-# Check cumulative stats
+# Day trade outcome backfill (10:00 AM ET)
 python premarket/update_outcomes.py summary
 ```
 
@@ -328,45 +395,24 @@ python premarket/update_outcomes.py summary
 |--------|----------|-------------|
 | GET | `/api/health` | Health check |
 | GET | `/api/regime` | Current market regime |
-| GET | `/api/scan` | Swing factor scan |
-| POST | `/api/scan/full` | Swing scan with LLM |
+| GET | `/api/scan` | Swing factor scan (Phase 1 only) |
+| POST | `/api/scan/full` | Swing full scan (Phase 1 + multi-agent) |
 | GET | `/api/premarket/scan` | Premarket scan (14 custom params) |
-| POST | `/api/premarket/scan/full` | Premarket scan with LLM + RAG |
-
----
-
-## Limitations
-
-- Swing scanner universe limited to ~55 S&P 500 stocks
-- Premarket scanner uses Finnhub free tier (60 calls/min) — full scan ~18 minutes
-- RAG context requires data accumulation; meaningful stats need 30+ cases per catalyst type
-- No real-time WebSocket streaming (snapshot-based)
-
----
-
-## Planned Improvements
-
-- Earnings calendar integration for binary event flagging
-- Auto-refresh toggle (every N minutes during premarket)
-- Dual-signal overlay: flag stocks in both Swing and Day Trade results simultaneously
-- Vector embeddings for news semantic search (pgvector already enabled)
-- Polygon.io bulk snapshot API for sub-minute full-market scans
-- ICIR-weighted factor combination for Swing Trade
-
----
+| POST | `/api/premarket/scan/full` | Premarket scan with MCP agentic pipeline |
 
 ---
 
 ## Evaluation & Experiments
 
+### Agent Components
 
-### Agent Components (2.1)
-
-| Component | Implementation |
-|---|---|
-| RAG | `catalyst_stats` + `knowledge` table injected into Claude prompt before each analysis |
-| MCP | Tavily MCP server (`mcp.tavily.com`) for real-time web search |
-| Tools | Finnhub API (quotes), yfinance (RVOL), Supabase (historical stats) |
+| Component | Swing Trade | Day Trade |
+|---|---|---|
+| LLM reasoning | ReAct (Search + Memory + Decision agents) | MCP agentic pipeline |
+| RAG | Memory Agent: swing_stats + knowledge table | catalyst_stats + knowledge injected into prompt |
+| Web search | Tavily (Search Agent, max 3 calls) | Tavily MCP server |
+| DB access | psycopg2 direct (Memory Agent) | Supabase MCP server |
+| Observability | Langfuse traces per agent | Langfuse traces per scan |
 
 ### Eval Directory
 
@@ -387,23 +433,17 @@ tests/
 
 25 cases covering: FDA approval vs Fast Track, earnings beat/miss, pump-and-dump, short squeeze, sector moves, M&A, dilution, analyst upgrades, and ambiguous catalyst wording.
 
-Each case has `input`, `expected_facts`, `forbidden_facts`, and `tags`.
-
 ### Experiment Log
 
 | Round | Change | Pass Rate | Conclusion |
 |-------|--------|-----------|------------|
 | 0 | Baseline — no RAG, no MCP | 56% | Baseline established |
-| 1 | Added RAG (catalyst_stats + knowledge) | 56% | No change — catalyst_stats empty, RAG has nothing to inject |
-| 2 | Added Tavily MCP search | 40% | Regression — richer context made Claude overconfident on sector-move stocks; forbidden_facts false positives detected |
-
-**Note:** Round 1 result is expected and informative — RAG adds value only once `scan_results` accumulates historical outcomes (30+ cases per catalyst type). The system is designed to improve over time as data accumulates.
+| 1 | Added RAG (catalyst_stats + knowledge) | 56% | No change — catalyst_stats empty at eval time |
+| 2 | Added Tavily MCP search | 40% | Regression — richer context caused overconfidence on sector-move stocks |
 
 ### Metrics
 
-**RAGAS Faithfulness: 0.088**
-
-Low score is expected — `catalyst_stats` table is still accumulating data, so RAG context only contains 3 knowledge base rules. Claude's outputs draw on general financial knowledge rather than specific historical win rates. Faithfulness is projected to improve as `scan_results` accumulates over the next 4–6 weeks.
+**RAGAS Faithfulness: 0.088** — Low score expected; `catalyst_stats` still accumulating. Faithfulness projected to improve as `swing_results` and `scan_results` accumulate over 4–6 weeks.
 
 **LLM-Judge: Cohen's Kappa = 0.310**
 
@@ -412,21 +452,32 @@ Low score is expected — `catalyst_stats` table is still accumulating data, so 
 | LLM judge (Claude Sonnet) | 2.87 / 3.0 | Strict rubric: catalyst specificity, entry/exit timing |
 | Human (author) | 2.73 / 3.0 | Practical trading utility |
 
-Kappa below target of 0.6. Root cause: LLM judge exhibits positivity bias — scored 13/15 cases at 3/3 even with strict rubric. Disagreements concentrated on ACMR, BBAI, PRAX where human rated 2 (vague entry timing) but LLM rated 3. Recommendation: cross-model judging (different model family) or larger human annotation set.
+Root cause: LLM judge positivity bias — scored 13/15 cases at 3/3. Disagreements concentrated on ACMR, BBAI, PRAX. Recommendation: cross-model judging or larger annotation set.
 
-**Observability:** All production Claude calls traced via Langfuse (`cloud.langfuse.com`), recording input, output, confidence scores, and MCP tool usage per analysis.
+**Observability:** All production Claude calls traced via Langfuse, recording input, output, confidence, and tool usage per agent.
 
 ### Trade-off
 
-Adding Tavily MCP search improved catalyst identification on ambiguous news cases but reduced golden set pass rate by 16pp (56% → 40%), increased average latency from ~8s to ~15s per stock, and added ~$0.003 per analysis in API costs.
+Adding Tavily MCP search improved catalyst identification on ambiguous news but reduced golden set pass rate by 16pp (56% → 40%), increased latency from ~8s to ~15s per stock, and added ~$0.003 per analysis.
 
 ---
 
-## Motivation
+## Limitations
 
-Traditional scanners apply fixed rules regardless of market conditions. This project tests the hypothesis that regime-adaptive quantitative signals combined with LLM catalyst analysis — grounded in self-accumulated historical data — produce higher-quality candidates than any single approach alone.
+- RAG context requires data accumulation; meaningful stats need 30+ cases per signal type
+- Swing Trade signal quality in VOLATILE regime is lower — mean-reversion signals have narrow edge without strong catalyst confirmation
+- No real-time WebSocket streaming (snapshot-based)
+- Premarket scanner uses Finnhub free tier (60 calls/min)
 
-The regime-switching insight is empirical: momentum factors delivered IC > 0.03 during 2019–2023 but turned negative after the April 2025 tariff shock, while reversal factors recovered to IC > 0.037. The RAG layer is designed to compound this advantage over time: as the system accumulates its own trade history, LLM analysis becomes increasingly grounded in the system's specific track record rather than generic financial knowledge.
+---
+
+## Planned Improvements
+
+- Factor Evo Agent: LLM-in-the-loop factor evolution inspired by CogAlpha, running weekly to propose and backtest new factor expressions
+- Earnings calendar integration for binary event detection in Decision Agent
+- pgvector semantic search in Memory Agent for similar historical case retrieval
+- Polygon.io bulk snapshot API for faster premarket scanning
+- Replay Agent for offline strategy backtesting using accumulated decision snapshots
 
 ---
 
@@ -440,6 +491,6 @@ The regime-switching insight is empirical: momentum factors delivered IC > 0.03 
 
 ## Author
 
-Jamie Ren · B.S. Computer Science & Statistics, University of Toronto · M.S. Information Science, Trine University
+Jamie Ren · B.S. Computer Science & Statistics, University of Toronto · M.S. AI Engineering, UCLA Extension
 
-*Built as part of quantitative research and AI engineering skill development.*
+*Built as a capstone project in AI engineering, combining quantitative finance and LLM systems.*
