@@ -359,7 +359,6 @@ python premarket/update_outcomes.py summary
 
 ## Evaluation & Experiments
 
-This project uses a four-build eval harness following the S12 framework.
 
 ### Agent Components (2.1)
 
@@ -416,17 +415,6 @@ Low score is expected — `catalyst_stats` table is still accumulating data, so 
 Kappa below target of 0.6. Root cause: LLM judge exhibits positivity bias — scored 13/15 cases at 3/3 even with strict rubric. Disagreements concentrated on ACMR, BBAI, PRAX where human rated 2 (vague entry timing) but LLM rated 3. Recommendation: cross-model judging (different model family) or larger human annotation set.
 
 **Observability:** All production Claude calls traced via Langfuse (`cloud.langfuse.com`), recording input, output, confidence scores, and MCP tool usage per analysis.
-
-### Failure Analysis
-
-**Case 1 — MDJH (pump-and-dump, failed on forbidden_facts):**
-Claude correctly output AVOID with strong reasoning ("textbook pump-and-dump"). Failed because `entry_timing` contained the phrase "Do not TRADE" — string matching flagged "TRADE" as a forbidden fact. Root cause: golden set `forbidden_facts` checks raw JSON string, not semantic intent. Fix: use field-level matching instead of full JSON string search.
-
-**Case 2 — MARA (sector move, overconfident with Tavily):**
-In `full` mode, Tavily searched for Bitcoin news and returned strong BTC bullish articles. Claude upgraded from WATCH to TRADE based on search results. Golden set expected WATCH. Root cause: additional real-time context made Claude more confident than the golden set intended. This is a real trade-off — better information can produce different (not necessarily wrong) signals.
-
-**Case 3 — NVAX (earnings miss, signal direction disagreement):**
-Claude output WATCH with detailed short strategy. Golden set expected AVOID. Claude's reasoning was technically sound (gave specific short entry). Disagreement reflects rubric ambiguity: WATCH with short instructions vs AVOID are operationally similar. Fix: add SHORT as a valid signal or relax the forbidden_facts for gap-down catalysts.
 
 ### Trade-off
 

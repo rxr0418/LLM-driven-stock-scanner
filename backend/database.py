@@ -591,6 +591,113 @@ def get_swing_stats_context(regime: str) -> str:
     except Exception as e:
         print(f"[db] get_swing_stats_context failed: {e}")
         return ""
+    
+# ─────────────────────────────────────────────────────────────
+# Swing Trade Phase 2 — decision snapshot writes
+# Append these functions to backend/database.py
+# ─────────────────────────────────────────────────────────────
+
+def write_decision_snapshot(
+    signal_id: str,
+    ticker: str,
+    signal: str,
+    confidence: int,
+    regime: str,
+    factors_used: list,
+    holding_period_days: int,
+    search_summary: dict,
+    memory_context: dict,
+    react_trace: str,
+    price_at_scan: float,
+) -> bool:
+    """
+    Insert one decision snapshot into swing_results after Decision Agent completes.
+    Called from swing/main.py — never from any agent directly.
+
+    signal_id format: YYYYMMDD_{ticker}_{hex6}
+    Used by update_swing_outcomes.py for outcome backfill matching.
+    """
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+
+        cur.execute("""
+            INSERT INTO swing_results (
+                signal_id,
+                ticker,
+                signal,
+                confidence,
+                regime,
+                factors_used,
+                holding_period_days,
+                search_summary,
+                memory_context,
+                react_trace,
+                price_at_scan,
+                scan_date
+            ) VALUES (
+                %s, %s, %s, %s, %s,
+                %s, %s,
+                %s, %s, %s,
+                %s, NOW()::date
+            )
+            ON CONFLICT (signal_id) DO NOTHING
+        """, (
+            signal_id,
+            ticker,
+            signal,
+            confidence,
+            regime,
+            json.dumps(factors_used),
+            holding_period_days,
+            json.dumps(search_summary),
+            json.dumps(memory_context),
+            react_trace,
+            price_at_scan,
+        ))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"[db] wrote snapshot: {signal_id} ({ticker} {signal})")
+        return True
+
+    except Exception as e:
+        print(f"[db] write_decision_snapshot failed for {ticker}: {e}")
+        return False
+
+
+def write_news_evidence(
+    signal_id: str,
+    ticker: str,
+    sources: list,
+) -> bool:
+    """
+    Insert news sources used in this decision into swing_news table.
+    Enables future tracing: which news led to which outcome.
+    """
+    if not sources:
+        return True
+
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+
+        for source in sources:
+            cur.execute("""
+                INSERT INTO swing_news (signal_id, ticker, title, source_type)
+                VALUES (%s, %s, %s, 'web')
+                ON CONFLICT DO NOTHING
+            """, (signal_id, ticker, str(source)[:500]))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+
+    except Exception as e:
+        print(f"[db] write_news_evidence failed for {ticker}: {e}")
+        return False
 
 # ─────────────────────────────────────────────────────────────
 # Test connection
