@@ -15,10 +15,7 @@ Phase 2 (new multi-agent):
 signal_id format: YYYYMMDD_{ticker}_{hex6}
   Unique per scan, used by update_swing_outcomes.py for backfill matching.
 """
-from pathlib import Path
-import sys
-sys.path.append(str(Path(__file__).parent.parent))
-from database import write_decision_snapshot, write_news_evidence
+
 import asyncio
 import json
 import os
@@ -39,7 +36,7 @@ from agents import (
     get_max_candidates,
     decision_agent_run,
 )
-from agents.memory_agent import write_decision_snapshot
+from database import write_decision_snapshot, write_news_evidence
 
 
 # ─────────────────────────────────────────────────────────────
@@ -72,24 +69,19 @@ async def analyze_candidate(
     # Fetch Yahoo headlines (sync, fast — called before async)
     yahoo_articles = fetch_news(ticker, max_articles=5)
 
-    # Run Search and Memory agents in parallel via thread pool
-    loop = asyncio.get_event_loop()
-
-    search_future = loop.run_in_executor(
-        None,
-        search_agent_run,
-        ticker, signal_direction, factor_score, regime, yahoo_articles,
-    )
-    memory_future = loop.run_in_executor(
-        None,
-        memory_agent_run,
-        ticker, signal_direction, regime, factors_used,
-    )
-
+    # Run Search and Memory agents in parallel via asyncio.to_thread
     search_result, memory_result = await asyncio.gather(
-        search_future, memory_future
+        asyncio.to_thread(
+            search_agent_run,
+            ticker, signal_direction, factor_score, regime, yahoo_articles,
+        ),
+        asyncio.to_thread(
+            memory_agent_run,
+            ticker, signal_direction, regime, factors_used,
+        ),
     )
 
+    
     # Merge context
     context = merge(
         ticker=ticker,
@@ -101,7 +93,7 @@ async def analyze_candidate(
     )
 
     # Decision Agent (sync — single LLM call with ReAct)
-    decision = await loop.run_in_executor(None, decision_agent_run, context)
+    decision = await asyncio.to_thread(decision_agent_run, context)
 
     # Attach holding period from merge utility (cross-check with agent output)
     agent_hold = decision.get("holding_period_days", 0)
@@ -169,7 +161,7 @@ async def run_full_pipeline(
         tasks.append(analyze_candidate(
             ticker=item["ticker"],
             factor_score=item["score"],
-            signal_direction="LONG",
+            signal_direction="BUY",
             regime=regime,
             factors_used=factors_used,
         ))

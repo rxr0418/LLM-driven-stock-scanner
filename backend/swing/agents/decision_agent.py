@@ -82,50 +82,20 @@ After Action: no_position, output JSON:
   "react_summary": "why you chose to pass"
 }
 
-Return ONLY the JSON after your action. No markdown, no extra text."""
+Return ONLY the JSON after your action. No markdown, no extra text.
+Keep your Thought to 3 sentences maximum. Do not use ** or any markdown formatting."""
 
 
 FEW_SHOT = """
-EXAMPLES:
+EXAMPLES (abbreviated):
+1. LONG 0.89 TRENDING + CONTRACT_WIN STRONG + win_rate=68% n=23 HIGH
+   → STRONG_BUY conf=87 hold=8d | "DoD contract confirms momentum; 68% win rate supports."
 
-Example 1 — Strong buy, news confirms:
-  Factor: LONG 0.89, Regime: TRENDING
-  Search: CONTRACT_WIN, STRONG, SUPPORTS, "DoD contract $165M confirmed"
-  Memory: win_rate=68%, n=23, HIGH confidence
-  Thought: Factor very strong. News directly confirms with hard dollar amount.
-           Historical win rate 68% with good sample size. Regime favors momentum.
-           No binary risk events. High conviction.
-  Action: decide
-  Output: {"signal": "STRONG_BUY", "confidence": 87, "news_alignment": "SUPPORTS",
-           "reason": "DoD contract win confirms momentum; 68% historical win rate supports.",
-           "risk_flag": "none", "holding_period_days": 8,
-           "react_summary": "Strong factor + confirmed catalyst + reliable history = high conviction long."}
+2. SHORT 0.08 NEUTRAL + FDA_FAST_TRACK CONTRADICTS + n=8 LOW
+   → NO_POSITION | "FDA Fast Track contradicts short; binary event risk too high."
 
-Example 2 — No position, binary risk:
-  Factor: SHORT 0.08, Regime: NEUTRAL
-  Search: FDA_FAST_TRACK, MODERATE, CONTRADICTS, "FDA Fast Track designation announced"
-  Memory: win_rate=52%, n=8, LOW confidence (sample too small)
-  Thought: FDA Fast Track is NOT approval — price likely overstated the catalyst.
-           BUT there may be follow-on FDA news. Short signal contradicted by positive news.
-           Sample too small to trust historical stats. Binary event risk remains.
-  Action: no_position(FDA binary risk — insufficient clarity to short or buy)
-  Output: {"signal": "NO_POSITION", "confidence": 0, "news_alignment": "CONTRADICTS",
-           "reason": "FDA Fast Track contradicts short; binary event risk too high.",
-           "risk_flag": "FDA binary event within 48h", "holding_period_days": 0,
-           "react_summary": "News contradicts signal and binary risk remains — pass."}
-
-Example 3 — Volatile regime, weak signal:
-  Factor: LONG 0.61, Regime: VOLATILE
-  Search: NO_CATALYST, NONE, NEUTRAL, "No significant news found"
-  Memory: knowledge rule: "Volatile regime without catalyst — reversal often fails"
-  Thought: Regime is VOLATILE. Factor score 0.61 is moderate, not strong.
-           No catalyst to explain the move. Knowledge rule warns against this setup.
-           Volatile markets punish weak signals without catalysts.
-  Action: no_position(weak signal in volatile regime with no catalyst)
-  Output: {"signal": "NO_POSITION", "confidence": 0, "news_alignment": "NEUTRAL",
-           "reason": "No catalyst in volatile regime; factor signal insufficient.",
-           "risk_flag": "volatile regime, no catalyst", "holding_period_days": 0,
-           "react_summary": "Volatile regime + no catalyst + moderate factor = not enough edge to trade."}
+3. LONG 0.61 VOLATILE + NO_CATALYST NONE + rule:"reversal fails without catalyst"
+   → NO_POSITION | "No catalyst in volatile regime; signal insufficient."
 """
 
 
@@ -216,7 +186,7 @@ Start your Thought chain now, then output Action and final JSON."""
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=700,
+        max_tokens=900,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
     )

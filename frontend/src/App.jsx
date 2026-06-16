@@ -93,7 +93,7 @@ const T = {
     sort_volume:     "By Volume",
     sort_amount:     "By Amount",
     regime: { TRENDING: "TRENDING", VOLATILE: "VOLATILE", NEUTRAL: "NEUTRAL" },
-    signal: { STRONG_BUY: "STRONG BUY", BUY: "BUY", NEUTRAL: "NEUTRAL", AVOID: "AVOID" },
+    signal: { STRONG_BUY: "STRONG BUY", BUY: "BUY", NEUTRAL: "NEUTRAL", SHORT: "SHORT", STRONG_SHORT: "STRONG SHORT", NO_POSITION: "NO POSITION", AVOID: "AVOID" },
     pmSignal: { TRADE: "TRADE", WATCH: "WATCH", AVOID: "AVOID" },
   },
   zh: {
@@ -158,7 +158,7 @@ const T = {
     sort_volume:     "按成交量",
     sort_amount:     "按成交额",
     regime: { TRENDING: "趋势市", VOLATILE: "震荡市", NEUTRAL: "中性" },
-    signal: { STRONG_BUY: "强烈买入", BUY: "买入", NEUTRAL: "中性", AVOID: "回避" },
+    signal: { STRONG_BUY: "强烈买入", BUY: "买入", NEUTRAL: "中性", SHORT: "做空", STRONG_SHORT: "强烈做空", NO_POSITION: "不操作", AVOID: "回避" },
     pmSignal: { TRADE: "可交易", WATCH: "观察", AVOID: "回避" },
   },
 };
@@ -218,7 +218,15 @@ function SignalBadge({ signal, t, type = "swing" }) {
     const colors = { TRADE: "signal-strong-buy", WATCH: "signal-neutral", AVOID: "signal-avoid" };
     return <span className={`signal ${colors[signal] || "signal-neutral"}`}>{t.pmSignal[signal] || signal || "—"}</span>;
   }
-  const colors = { STRONG_BUY: "signal-strong-buy", BUY: "signal-buy", NEUTRAL: "signal-neutral", AVOID: "signal-avoid" };
+  const colors = {
+    STRONG_BUY:   "signal-strong-buy",
+    BUY:          "signal-buy",
+    NEUTRAL:      "signal-neutral",
+    SHORT:        "signal-short",
+    STRONG_SHORT: "signal-strong-short",
+    NO_POSITION:  "signal-no-position",
+    AVOID:        "signal-avoid",
+  };
   return <span className={`signal ${colors[signal] || "signal-neutral"}`}>{t.signal[signal] || signal || "—"}</span>;
 }
 
@@ -424,6 +432,9 @@ function SwingCard({ item, side, t }) {
       {hasLlm && (
         <div className="card-body">
           <ConfidenceBar value={item.confidence || 0} />
+          {item.holding_period_days > 0 && (
+            <span className="holding-badge">Hold {item.holding_period_days}d</span>
+          )}
           {item.reason && <p className="reason">{item.reason}</p>}
           {expanded && item.risk_flag && item.risk_flag !== "none" && (
             <p className="risk-flag">⚠ {item.risk_flag}</p>
@@ -622,6 +633,9 @@ function PremarketCard({ item, t }) {
       {hasLlm && (
         <div className="card-body">
           <ConfidenceBar value={item.confidence || 0} />
+          {item.holding_period_days > 0 && (
+            <span className="holding-badge">Hold {item.holding_period_days}d</span>
+          )}
           {item.reason && <p className="reason">{item.reason}</p>}
           {expanded && item.risk && <p className="risk-flag">⚠ {item.risk}</p>}
           {expanded && item.news?.length > 0 && (

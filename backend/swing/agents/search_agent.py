@@ -3,19 +3,15 @@ agents/search_agent.py - Search Agent for Swing Trade Phase 2.
 
 Responsibilities:
   - Fetch Yahoo Finance headlines for a ticker (free, no API key)
-  - Run a ReAct loop: assess headline quality, decide whether to
+  - Run a ReAct loop: assess all headlines, decide whether to
     search for more via Tavily, stop when information is sufficient
   - Return a structured catalyst summary for the Decision Agent
 
-ReAct loop termination rules (hard constraints):
-  - Min 2 independent sources before stopping
-  - Must cover at least: catalyst type + price_action context
-  - Max 3 Tavily searches to control cost
-  - If no news found after searching, return low-confidence summary
-
-Design note:
-  Search Agent owns ALL information gathering for a ticker.
-  data.fetch_news() is called here, not in main.py.
+ReAct loop:
+  - Agent sees ALL Yahoo headlines upfront
+  - Decides itself: sufficient? search? what query?
+  - Max 2 Tavily searches to control cost
+  - Always identifies highest-impact event before classifying
 """
 
 import json
@@ -27,7 +23,7 @@ import anthropic
 
 warnings.filterwarnings("ignore")
 
-MAX_TAVILY_CALLS = 3
+MAX_TAVILY_CALLS = 2
 
 SYSTEM_PROMPT = """You are a financial research agent analyzing stocks for swing trading.
 
@@ -46,7 +42,7 @@ Rules:
   * You know the catalyst type (earnings / contract / FDA / macro / none)
   * You have at least 2 independent sources OR confirmed there is no news
   * You understand if the price move is proportional to the catalyst
-- Maximum 3 searches allowed - be efficient
+- Maximum 2 searches allowed - be efficient
 - If no meaningful catalyst exists after searching, that IS useful information
 
 CRITICAL — before classifying catalyst_type:
@@ -54,7 +50,7 @@ CRITICAL — before classifying catalyst_type:
 2. Identify which single event has the LARGEST price impact on this stock
 3. Classify catalyst_type based on THAT event — not the first headline you saw
 
-After Action: stop, output a JSON summary in this exact format:
+After Action: stop, output ONLY this JSON (no markdown):
 {
   "catalyst_type": "EARNINGS_BEAT|EARNINGS_MISS|CONTRACT_WIN|DEAL_WIN|FDA_APPROVAL|FDA_FAST_TRACK|MACRO|ANALYST_UPGRADE|ANALYST_DOWNGRADE|NO_CATALYST|OTHER",
   "catalyst_strength": "STRONG|MODERATE|WEAK|NONE",
@@ -63,64 +59,42 @@ After Action: stop, output a JSON summary in this exact format:
   "summary": "one sentence describing the key catalyst or lack thereof",
   "risk_flag": "none or specific risk",
   "search_count": integer
-}
-
-Return ONLY the JSON after stop. No markdown, no extra text."""
+}"""
 
 
 def _format_headlines(articles: list) -> str:
-    """Format Yahoo Finance articles for injection into the prompt."""
     if not articles:
         return "No headlines found from Yahoo Finance."
-    lines = []
-    for a in articles[:5]:
-        pub = a.get("publisher", "Unknown")
-        title = a.get("title", "")
-        lines.append(f"  [{pub}] {title}")
-    return "\n".join(lines)
+    return "\n".join(
+        f"  [{a.get('publisher', 'Unknown')}] {a.get('title', '')}"
+        for a in articles[:5]
+    )
 
 
 def _call_tavily(query: str) -> str:
-    """
-    Call Tavily search API.
-    Returns formatted results string or error message.
-    """
     try:
         import requests
         api_key = os.environ.get("TAVILY_API_KEY", "")
         if not api_key:
             return "Tavily API key not set — skipping web search."
-
         resp = requests.post(
             "https://api.tavily.com/search",
-            json={
-                "api_key": api_key,
-                "query": query,
-                "search_depth": "basic",
-                "max_results": 3,
-                "include_answer": True,
-            },
+            json={"api_key": api_key, "query": query,
+                  "search_depth": "basic", "max_results": 3, "include_answer": True},
             timeout=10,
         )
         data = resp.json()
-
         lines = []
         if data.get("answer"):
             lines.append(f"Summary: {data['answer']}")
         for r in data.get("results", [])[:3]:
-            lines.append(f"  [{r.get('source', 'web')}] {r.get('title', '')} — {r.get('content', '')[:120]}")
+            lines.append(f"  [{r.get('source','web')}] {r.get('title','')} — {r.get('content','')[:120]}")
         return "\n".join(lines) if lines else "No results found."
-
     except Exception as e:
         return f"Search failed: {e}"
 
 
 def _parse_action(text: str) -> tuple[str, Optional[str]]:
-    """
-    Parse Action line from ReAct output.
-    Returns (action_type, query_or_none).
-    action_type is 'search' or 'stop'.
-    """
     for line in text.split("\n"):
         line = line.strip()
         if line.startswith("Action:"):
@@ -134,10 +108,6 @@ def _parse_action(text: str) -> tuple[str, Optional[str]]:
 
 
 def _extract_json(text: str) -> dict:
-    """
-    Extract JSON from the final LLM output after stop.
-    Falls back to a default dict on parse failure.
-    """
     try:
         cleaned = text.replace("```json", "").replace("```", "").strip()
         start = cleaned.find("{")
@@ -164,35 +134,17 @@ def run(
     regime: str,
     yahoo_articles: list,
 ) -> dict:
-    """
-    Run the Search Agent ReAct loop for a single ticker.
-
-    Args:
-        ticker           : e.g. "AAPL"
-        signal_direction : "LONG" or "SHORT"
-        factor_score     : composite score from scanner (0–1)
-        regime           : "TRENDING" | "VOLATILE" | "NEUTRAL"
-        yahoo_articles   : list of dicts from data.fetch_news()
-
-    Returns:
-        Structured catalyst summary dict for merge() and Decision Agent.
-    """
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
-
     headlines_text = _format_headlines(yahoo_articles)
 
-    # Initial user message: give agent all the context it starts with
     initial_message = f"""Analyze this swing trade candidate:
 
-Ticker          : {ticker}
-Signal direction: {signal_direction}
-Factor score    : {factor_score:.3f} (0=weakest, 1=strongest)
-Market regime   : {regime}
+Ticker: {ticker} | Direction: {signal_direction} | Score: {factor_score:.3f} | Regime: {regime}
 
-Yahoo Finance headlines (free tier, may be incomplete):
+Yahoo Finance headlines (all available — assess ALL before deciding):
 {headlines_text}
 
-Start your ReAct analysis now. Decide if you need more information or if headlines are sufficient."""
+Start your ReAct analysis. Scan all headlines, identify the highest-impact event, then decide if you need more information."""
 
     messages = [{"role": "user", "content": initial_message}]
     search_count = 0
@@ -203,7 +155,7 @@ Start your ReAct analysis now. Decide if you need more information or if headlin
     for turn in range(MAX_TAVILY_CALLS + 2):
         response = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=800,
+            max_tokens=500,
             system=SYSTEM_PROMPT,
             messages=messages,
         )
@@ -220,14 +172,12 @@ Start your ReAct analysis now. Decide if you need more information or if headlin
 
         if action_type == "search":
             if search_count >= MAX_TAVILY_CALLS:
-                # Force stop — hit limit
-                force_stop = "Max searches reached.\nAction: stop"
-                messages.append({"role": "user", "content": force_stop})
+                # Force stop
+                messages.append({"role": "user", "content": "Max searches reached. Action: stop"})
                 react_trace.append({"turn": turn, "forced": "max_searches"})
-                # One more LLM call to get final JSON
                 response = client.messages.create(
                     model="claude-sonnet-4-6",
-                    max_tokens=600,
+                    max_tokens=400,
                     system=SYSTEM_PROMPT,
                     messages=messages,
                 )
@@ -239,12 +189,9 @@ Start your ReAct analysis now. Decide if you need more information or if headlin
             print(f"  [search_agent] {ticker}: searching → {query}")
             search_result = _call_tavily(query)
             search_count += 1
-
-            observation = f"Observation: {search_result}"
-            messages.append({"role": "user", "content": observation})
+            messages.append({"role": "user", "content": f"Observation: {search_result}"})
             react_trace.append({"turn": turn, "search": query, "result_preview": search_result[:100]})
 
-    # Extract final JSON from last assistant message
     final_text = messages[-1]["content"] if messages[-1]["role"] == "assistant" else ""
     result = _extract_json(final_text)
     result["search_count"] = search_count
@@ -254,25 +201,7 @@ Start your ReAct analysis now. Decide if you need more information or if headlin
     return result
 
 
-def _fallback(ticker: str) -> dict:
-    """Return a safe default when the agent fails entirely."""
-    return {
-        "ticker": ticker,
-        "catalyst_type": "OTHER",
-        "catalyst_strength": "NONE",
-        "news_alignment": "NEUTRAL",
-        "sources": [],
-        "summary": "Search agent failed — no information available.",
-        "risk_flag": "agent_error",
-        "search_count": 0,
-        "react_trace": [],
-    }
-
-
 # ─────────────────────────────────────────────────────────────
-# Quick test
-# ─────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
     import sys
     sys.path.append(str(__import__("pathlib").Path(__file__).parent.parent))
@@ -280,7 +209,6 @@ if __name__ == "__main__":
 
     ticker = "GS"
     print(f"Testing Search Agent on {ticker}...\n")
-
     articles = fetch_news(ticker, max_articles=5)
     print(f"Yahoo headlines fetched: {len(articles)}\n")
 

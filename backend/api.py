@@ -29,11 +29,15 @@ from pydantic import BaseModel
 import sys
 sys.path.append(str(Path(__file__).parent))
 
-from swing.data        import fetch_price_data, fetch_news_batch, UNIVERSE
-from swing.regime      import detect_regime
-from swing.scanner     import run_scan
-from swing.llm_analyst import analyze_watchlist
-from swing.main        import stable_regime, save_results
+import asyncio
+from swing.data    import fetch_price_data, UNIVERSE
+from swing.regime  import detect_regime
+from swing.scanner import run_scan
+from swing.main    import run_full_pipeline, run_factor_scan
+
+# stable_regime shim — keep existing /api/regime and /api/scan working
+def stable_regime(raw, min_streak=2):
+    return raw
 
 from premarket.premarket_data     import run_premarket_data_fetch
 from premarket.premarket_catalyst import analyze_candidates_batch
@@ -125,9 +129,7 @@ def get_regime():
     Detect and return the current market regime.
     Uses stability filter to prevent rapid switching.
     """
-    raw    = detect_regime()
-    stable = stable_regime(raw, min_streak=2)
-    return stable
+    return detect_regime()
 
 
 @app.get("/api/scan", response_model=ScanResponse)
@@ -141,69 +143,33 @@ def get_scan(top_n: int = 10):
     """
     print(f"[api] Running factor scan, top_n={top_n}...")
 
-    price_data    = fetch_price_data(UNIVERSE, lookback_days=90)
-    raw_regime    = detect_regime()
-    regime_result = stable_regime(raw_regime, min_streak=2)
-    scan_results  = run_scan(price_data, regime_result, top_n=top_n)
-
-    if "error" in scan_results:
-        raise HTTPException(status_code=500, detail=scan_results["error"])
-    print(f"[api] regime_result keys: {list(regime_result.keys())}")
-    print(f"[api] vix={regime_result.get('vix')}, rvol={regime_result.get('realized_vol')}")
-
-    return {
-    **scan_results,
-    "vix":            regime_result["vix"],
-    "realized_vol":   regime_result["realized_vol"],
-    "trend_strength": regime_result["trend_strength"],
-    "has_llm_analysis": False,
-    }
+    result = run_factor_scan(top_n=top_n)
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return {**result, "has_llm_analysis": False}
 
 
-@app.post("/api/scan/full", response_model=ScanResponse)
-def get_full_scan(top_n: int = 10, save: bool = True, lang: str = "en"):
+@app.post("/api/scan/full")
+async def get_full_scan(top_n: int = 10, lang: str = "en"):
     """
-    Run full scan with LLM news analysis.
-    Slower — makes Claude API calls for each candidate.
-
-    Query params:
-      top_n : number of candidates per side (default 10)
-      save  : save results to disk (default true)
+    Run full scan with multi-agent LLM analysis (Phase 1 + Phase 2).
+    Phase 1: regime detection + factor scan
+    Phase 2: Search Agent + Memory Agent + Decision Agent per ticker
     """
-    print(f"[api] Running full scan with LLM, top_n={top_n}...")
-
-    price_data    = fetch_price_data(UNIVERSE, lookback_days=90)
-    raw_regime    = detect_regime()
-    regime_result = stable_regime(raw_regime, min_streak=2)
-    scan_results  = run_scan(price_data, regime_result, top_n=top_n)
-
-    if "error" in scan_results:
-        raise HTTPException(status_code=500, detail=scan_results["error"])
-
-    # Fetch news for all candidates
-    all_tickers = (
-        [x["ticker"] for x in scan_results["long_candidates"]] +
-        [x["ticker"] for x in scan_results["short_candidates"]]
-    )
-    news_data = fetch_news_batch(all_tickers, max_articles=5)
-
-    # LLM analysis
-    watchlist = analyze_watchlist(scan_results, news_data, top_n=top_n, lang=lang)
-
-    # Save to disk
-    if save:
-        filepath = save_results(watchlist)
-        print(f"[api] Saved to {filepath}")
-
-    # Cache latest result
-    _cache["latest"] = watchlist
-
-    return {
-    **watchlist,
-    "long_candidates":  watchlist.get("long_watchlist", []),
-    "short_candidates": watchlist.get("short_watchlist", []),
-    "has_llm_analysis": True,
-}
+    print(f"[api] Running full multi-agent scan, top_n={top_n}...")
+    try:
+        result = await run_full_pipeline(top_n=top_n, lang=lang)
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        # Map to frontend expected format
+        return {
+            **result,
+            "long_candidates":  result.get("long_watchlist", []),
+            "short_candidates": result.get("short_watchlist", []),
+            "has_llm_analysis": True,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/latest")
 def get_latest():
