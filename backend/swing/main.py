@@ -25,9 +25,9 @@ from datetime import date, datetime
 
 warnings.filterwarnings("ignore")
 
-from data import fetch_price_data, fetch_news, fetch_market_overview, UNIVERSE
-from regime import detect_regime
-from scanner import run_scan
+from swing.data import fetch_price_data, fetch_news, fetch_market_overview, UNIVERSE
+from swing.regime import detect_regime
+from swing.scanner import run_scan
 from agents import (
     search_agent_run,
     memory_agent_run,

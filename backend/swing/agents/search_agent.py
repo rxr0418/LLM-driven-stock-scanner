@@ -205,7 +205,7 @@ Start your ReAct analysis. Scan all headlines, identify the highest-impact event
 if __name__ == "__main__":
     import sys
     sys.path.append(str(__import__("pathlib").Path(__file__).parent.parent))
-    from data import fetch_news
+    from swing.data import fetch_news
 
     ticker = "GS"
     print(f"Testing Search Agent on {ticker}...\n")
