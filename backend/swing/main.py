@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore")
 from swing.data import fetch_price_data, fetch_news, fetch_market_overview, UNIVERSE
 from swing.regime import detect_regime
 from swing.scanner import run_scan
-from agents import (
+from swing.agents import (
     search_agent_run,
     memory_agent_run,
     merge,
