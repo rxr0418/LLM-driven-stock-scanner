@@ -19,6 +19,9 @@ import anthropic
 
 warnings.filterwarnings("ignore")
 
+ANALYST_MODEL      = "claude-sonnet-4-6"
+ANALYST_MAX_TOKENS = 400
+
 
 # ─────────────────────────────────────────────────────────────
 # Client
@@ -189,8 +192,8 @@ Return ONLY valid JSON, no markdown, no explanation outside the JSON:
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=400,
+            model=ANALYST_MODEL,
+            max_tokens=ANALYST_MAX_TOKENS,
             messages=[{"role": "user", "content": prompt}],
         )
 

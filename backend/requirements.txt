@@ -1,7 +1,9 @@
 fastapi
+python-dotenv
 uvicorn
 pydantic
 anthropic
+openai
 yfinance
 pandas
 numpy

@@ -16,6 +16,9 @@ Run with:
 import json
 import os
 from datetime import datetime
+
+from dotenv import load_dotenv
+load_dotenv()
 from pathlib import Path
 from typing import Optional
 

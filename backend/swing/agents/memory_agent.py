@@ -1,117 +1,84 @@
 """
-agents/memory_agent.py - Memory Worker for Swing Trade Phase 2.
+agents/memory_agent.py - Memory Agent for Swing Trade Phase 2.
 
-Responsibilities:
-  - Query Supabase swing_stats for historical win rates (tiered fallback)
-  - Query knowledge table for relevant trading rules
-  - Return structured memory context for the Decision Agent
+Retrieval layers (all semantic or ticker-keyed, no LLM calls):
+  1. Knowledge rules     : pgvector semantic search (trading rules + sector rules)
+  2. Similar past cases  : pgvector semantic search on swing_results
+  3. Upcoming events     : exact ticker lookup (earnings, FDA, macro)
+  4. Analyst ratings     : exact ticker lookup, last 30 days
+  5. SEC filings         : exact ticker lookup, last 2 filings
 
-No LLM calls — pure Python with deterministic query logic.
-
-Query key priority:
-  1. (regime, signal)   — most specific, use if sample_size >= MIN_SAMPLE
-  2. (signal only)      — drop regime if step 1 insufficient
-  3. knowledge rules only — if no reliable stats anywhere
-
-Design note:
-  Memory Agent only READS from Supabase during Phase 2.
-  All writes happen in database.py, called from main.py
-  after Decision Agent completes.
+Runs AFTER Search Agent so catalyst_type is available for retrieval.
 """
 
-import os
 import sys
 import warnings
 from pathlib import Path
+from typing import Optional
 
 warnings.filterwarnings("ignore")
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
-
-MIN_SAMPLE = 10
-
-
-def get_connection():
-    """Get Supabase PostgreSQL connection."""
-    import psycopg2
-    url = os.environ.get("SUPABASE_URL", "")
-    if not url:
-        raise ValueError("SUPABASE_URL not set")
-    return psycopg2.connect(url)
+from embeddings import build_knowledge_query
+from config import MAX_KNOWLEDGE_RULES, MAX_SIMILAR_CASES, MAX_ANALYST_RATINGS, MAX_SEC_FILINGS
 
 
-def _query_stats(regime: str = None, signal: str = None) -> dict:
-    """
-    Query swing_stats with optional regime and signal filters.
-    Returns first matching row as dict, or empty dict if no results.
-    """
+def _query_knowledge_semantic(query: str) -> list:
     try:
-        conn = get_connection()
-        cur = conn.cursor()
-
-        conditions = []
-        params = []
-        if regime:
-            conditions.append("regime = %s")
-            params.append(regime)
-        if signal:
-            conditions.append("signal = %s")
-            params.append(signal)
-
-        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-
-        cur.execute(f"""
-            SELECT regime, signal, sample_size,
-                   win_rate_5d, avg_return_5d,
-                   win_rate_10d, avg_return_10d
-            FROM swing_stats
-            {where}
-            ORDER BY sample_size DESC
-            LIMIT 1
-        """, params)
-
-        row = cur.fetchone()
-        cur.close()
-        conn.close()
-
-        if not row:
-            return {}
-
-        return {
-            "regime":       row[0],
-            "signal":       row[1],
-            "sample_size":  row[2],
-            "win_rate_5d":  row[3],
-            "avg_return_5d": row[4],
-            "win_rate_10d": row[5],
-            "avg_return_10d": row[6],
-        }
-
-    except Exception as e:
-        print(f"  [memory_agent] stats query failed: {e}")
-        return {}
-
-
-def _query_knowledge() -> list:
-    """Fetch trading rules from knowledge table."""
-    try:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT content, category, confidence
-            FROM knowledge
-            ORDER BY created_at DESC
-            LIMIT 8
-        """)
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
+        from database import search_knowledge_semantic
+        rows = search_knowledge_semantic(query, limit=6)
         return [
-            f"{r[0]} (category={r[1]}, confidence={r[2]})" if r[1] else r[0]
+            f"{r['content']} (category={r['category']}, sim={r.get('similarity', '?'):.2f})"
+            if r.get("category") else r["content"]
             for r in rows
         ]
-    except Exception:
+    except Exception as e:
+        print(f"  [memory_agent] knowledge query failed: {e}")
         return []
+
+
+def _query_similar_cases(query: str) -> list:
+    try:
+        from database import search_swing_cases_semantic
+        return search_swing_cases_semantic(query, limit=3)
+    except Exception as e:
+        print(f"  [memory_agent] case retrieval failed: {e}")
+        return []
+
+
+def _query_events(ticker: str) -> list:
+    try:
+        from database import get_upcoming_events
+        return get_upcoming_events(ticker, within_days=14)
+    except Exception as e:
+        print(f"  [memory_agent] events query failed: {e}")
+        return []
+
+
+def _query_analyst_ratings(ticker: str) -> list:
+    try:
+        from database import search_analyst_ratings
+        return search_analyst_ratings(ticker, limit=5)
+    except Exception as e:
+        print(f"  [memory_agent] analyst ratings query failed: {e}")
+        return []
+
+
+def _query_sec_filings(ticker: str) -> list:
+    try:
+        from database import search_sec_filings
+        return search_sec_filings(ticker, limit=2)
+    except Exception as e:
+        print(f"  [memory_agent] SEC filings query failed: {e}")
+        return []
+
+
+def _build_event_risk_flag(events: list) -> str | None:
+    """Return a risk flag string if a binary event is imminent (<= 5 days)."""
+    for ev in events:
+        if ev.get("days_away", 99) <= 5:
+            return f"{ev['event_type']} in {ev['days_away']}d ({ev['event_date']})"
+    return None
 
 
 def run(
@@ -119,99 +86,89 @@ def run(
     signal_direction: str,
     regime: str,
     factors_used: list,
+    catalyst_type: Optional[str] = None,
 ) -> dict:
     """
-    Retrieve historical context for a single ticker.
-    Pure Python — no LLM calls.
-
-    Tiered query strategy:
-      Level 1: regime + signal  (most specific)
-      Level 2: signal only      (broader)
-      Level 3: no stats         (knowledge rules only)
+    Retrieve all context layers for a single ticker.
 
     Args:
         ticker           : e.g. "AAPL"
         signal_direction : "BUY" or "SHORT"
         regime           : "TRENDING" | "VOLATILE" | "NEUTRAL"
         factors_used     : list of factor names from scanner
+        catalyst_type    : from Search Agent output (e.g. "CONTRACT_WIN")
 
     Returns:
-        Structured memory context dict for merge() and Decision Agent.
+        Memory context dict for merge() and Decision Agent.
     """
-    print(f"  [memory_agent] {ticker}: querying DB")
+    print(f"  [memory_agent] {ticker}: querying (catalyst={catalyst_type})")
 
-    # ── Level 1: regime + signal ──────────────────────────────
-    stats = _query_stats(regime=regime, signal=signal_direction)
-    query_level = "specific"
+    semantic_query  = build_knowledge_query(ticker, signal_direction, regime, catalyst_type)
 
-    # ── Level 2: signal only ──────────────────────────────────
-    if not stats or stats.get("sample_size", 0) < MIN_SAMPLE:
-        stats = _query_stats(signal=signal_direction)
-        query_level = "signal"
+    knowledge_rules = _query_knowledge_semantic(semantic_query)[:MAX_KNOWLEDGE_RULES]
+    similar_cases   = _query_similar_cases(semantic_query)[:MAX_SIMILAR_CASES]
+    upcoming_events = _query_events(ticker)
+    analyst_ratings = _query_analyst_ratings(ticker)[:MAX_ANALYST_RATINGS]
+    sec_filings     = _query_sec_filings(ticker)[:MAX_SEC_FILINGS]
 
-    # ── Level 3: no reliable stats ───────────────────────────
-    if not stats or stats.get("sample_size", 0) < MIN_SAMPLE:
-        stats = {}
-        query_level = "none"
+    cases_with_outcome = [c for c in similar_cases if c.get("actual_return") is not None]
 
-    # ── Knowledge rules (always fetch) ───────────────────────
-    knowledge_rules = _query_knowledge()
-
-    # ── Assemble result ───────────────────────────────────────
-    has_stats = bool(stats)
-    sample_size = stats.get("sample_size") if has_stats else None
-    win_rate = stats.get("win_rate_10d") if has_stats else None
-    avg_return = stats.get("avg_return_10d") if has_stats else None
-    confidence = "HIGH" if has_stats else "NONE"
-
-    if has_stats:
+    if cases_with_outcome:
         context_summary = (
-            f"{regime}/{signal_direction} regime shows {win_rate:.0f}% win rate "
-            f"and {avg_return:+.1f}% avg 10d return across {sample_size} samples "
-            f"(query level: {query_level})."
+            f"{len(cases_with_outcome)} similar past cases found with outcomes. "
+            f"Avg return: {sum(c['actual_return'] for c in cases_with_outcome) / len(cases_with_outcome):+.1f}%."
         )
     else:
-        context_summary = (
-            f"No reliable historical stats for {regime}/{signal_direction}. "
-            f"Rely on knowledge rules only."
-        )
+        context_summary = "No similar past cases with outcomes yet. Rely on knowledge rules."
 
-    print(f"  [memory_agent] {ticker}: done (level={query_level}, n={sample_size}, win={win_rate})")
+    event_risk_flag = _build_event_risk_flag(upcoming_events)
+
+    print(f"  [memory_agent] {ticker}: done "
+          f"(rules={len(knowledge_rules)}, cases={len(similar_cases)}, "
+          f"events={len(upcoming_events)}, ratings={len(analyst_ratings)}, "
+          f"filings={len(sec_filings)})")
 
     return {
-        "ticker":              ticker,
-        "has_stats":           has_stats,
-        "win_rate":            win_rate,
-        "avg_return":          avg_return,
-        "sample_size":         sample_size,
-        "query_level":         query_level,
-        "knowledge_rules":     knowledge_rules,
-        "confidence_in_prior": confidence,
-        "context_summary":     context_summary,
-        "react_trace":         [],  # no LLM calls — empty trace
+        "ticker":          ticker,
+        "knowledge_rules": knowledge_rules,
+        "similar_cases":   similar_cases,
+        "upcoming_events": upcoming_events,
+        "analyst_ratings": analyst_ratings,
+        "sec_filings":     sec_filings,
+        "event_risk_flag": event_risk_flag,
+        "context_summary": context_summary,
+        "react_trace":     [],
     }
 
 
 # ─────────────────────────────────────────────────────────────
-# Quick test
-# ─────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
-    ticker = "GS"
-    print(f"Testing Memory Agent on {ticker}...\n")
+    from dotenv import load_dotenv
+    load_dotenv()
 
     result = run(
-        ticker=ticker,
+        ticker="GS",
         signal_direction="BUY",
         regime="NEUTRAL",
         factors_used=["momentum_20d", "reversal_5d", "volume_spike"],
+        catalyst_type="MACRO",
     )
 
     print("\n── Memory Agent Result ──")
-    for k, v in result.items():
-        if k == "knowledge_rules":
-            print(f"  knowledge_rules ({len(v)}):")
-            for r in v:
-                print(f"    - {r}")
-        else:
-            print(f"  {k}: {v}")
+    print(f"  context_summary: {result['context_summary']}")
+    print(f"  event_risk_flag: {result['event_risk_flag']}")
+    print(f"  knowledge_rules ({len(result['knowledge_rules'])}):")
+    for r in result["knowledge_rules"]:
+        print(f"    - {r}")
+    print(f"  upcoming_events ({len(result['upcoming_events'])}):")
+    for e in result["upcoming_events"]:
+        print(f"    - {e}")
+    print(f"  analyst_ratings ({len(result['analyst_ratings'])}):")
+    for r in result["analyst_ratings"]:
+        print(f"    - {r['summary']} ({r['rating_date']})")
+    print(f"  sec_filings ({len(result['sec_filings'])}):")
+    for f in result["sec_filings"]:
+        print(f"    - {f['filing_type']} {f['filed_date']}: {f['summary']}")
+    print(f"  similar_cases ({len(result['similar_cases'])}):")
+    for c in result["similar_cases"]:
+        print(f"    - {c}")

@@ -24,9 +24,17 @@ ReAct in Decision Agent:
 
 import json
 import os
+import sys
 import warnings
+from pathlib import Path
 
 import anthropic
+
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from config import (
+    ANALYST_MODEL, DECISION_AGENT_MAX_TOKENS, MAX_DECISION_RETRIES,
+    MAX_KNOWLEDGE_RULES, MAX_ANALYST_RATINGS, MAX_SEC_FILINGS,
+)
 
 warnings.filterwarnings("ignore")
 
@@ -99,8 +107,12 @@ EXAMPLES (abbreviated):
 """
 
 
-def _extract_json(text: str) -> dict:
-    """Extract JSON from final decision output."""
+VALID_SIGNALS = {"STRONG_BUY", "BUY", "NEUTRAL", "SHORT", "STRONG_SHORT", "NO_POSITION"}
+VALID_ALIGNMENTS = {"SUPPORTS", "CONTRADICTS", "NEUTRAL"}
+
+
+def _extract_json(text: str) -> dict | None:
+    """Extract JSON from decision output. Returns None on parse failure."""
     try:
         cleaned = text.replace("```json", "").replace("```", "").strip()
         start = cleaned.find("{")
@@ -109,54 +121,99 @@ def _extract_json(text: str) -> dict:
             return json.loads(cleaned[start:end])
     except Exception:
         pass
-    return {
-        "signal": "NEUTRAL",
-        "confidence": 0,
-        "news_alignment": "NEUTRAL",
-        "reason": "Decision agent parse error.",
-        "risk_flag": "parse_error",
-        "holding_period_days": 0,
-        "react_summary": "Parse failed.",
-    }
+    return None
 
 
-def run(context: dict) -> dict:
+def _validate(result: dict) -> list[str]:
     """
-    Run the Decision Agent for a single ticker.
-
-    Args:
-        context: output of merge.merge() — contains ticker, factor_score,
-                 regime, search, memory, regime_hint, holding_period_hint
-
-    Returns:
-        Final decision dict with signal, confidence, reason, holding_period_days.
+    Validate required fields and value ranges.
+    Returns a list of error strings (empty = valid).
     """
-    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
+    errors = []
 
-    ticker = context.get("ticker", "UNKNOWN")
+    signal = result.get("signal")
+    if signal not in VALID_SIGNALS:
+        errors.append(f"signal must be one of {VALID_SIGNALS}, got {signal!r}")
+
+    confidence = result.get("confidence")
+    if not isinstance(confidence, int) or not (0 <= confidence <= 100):
+        errors.append(f"confidence must be int 0-100, got {confidence!r}")
+
+    alignment = result.get("news_alignment")
+    if alignment not in VALID_ALIGNMENTS:
+        errors.append(f"news_alignment must be one of {VALID_ALIGNMENTS}, got {alignment!r}")
+
+    holding = result.get("holding_period_days")
+    if not isinstance(holding, int) or holding < 0:
+        errors.append(f"holding_period_days must be non-negative int, got {holding!r}")
+
+    if not result.get("reason"):
+        errors.append("reason is missing or empty")
+
+    return errors
+
+
+def _format_cases(cases: list) -> str:
+    if not cases:
+        return "  - No similar past cases found."
+    lines = []
+    for c in cases:
+        ret = f"return={c['actual_return']:+.1f}%" if c.get("actual_return") is not None else "outcome=pending"
+        lines.append(
+            f"  - {c['scan_date']} | {c['ticker']} | {c['signal']} conf={c['confidence']}% | "
+            f"{c['catalyst_type']} | {ret} (sim={c['similarity']:.2f})"
+        )
+    return "\n".join(lines)
+
+
+def _format_events(events: list) -> str:
+    if not events:
+        return "  - None in next 14 days."
+    return "\n".join(
+        f"  - {e['event_type']} on {e['event_date']} ({e['days_away']}d away)"
+        for e in events
+    )
+
+
+def _format_ratings(ratings: list) -> str:
+    if not ratings:
+        return "  - No recent analyst rating changes."
+    return "\n".join(
+        f"  - {r['summary']} ({r['rating_date']})"
+        for r in ratings[:MAX_ANALYST_RATINGS]
+    )
+
+
+def _format_sec(filings: list) -> str:
+    if not filings:
+        return "  - No recent SEC filings."
+    lines = []
+    for f in filings:
+        km = f.get("key_metrics", {})
+        sentiment = km.get("sentiment", "")
+        lines.append(
+            f"  - {f['filing_type']} {f['filed_date']}: {f['summary']}"
+            + (f" [sentiment={sentiment}]" if sentiment else "")
+        )
+    return "\n".join(lines)
+
+
+def _build_prompt(context: dict) -> str:
+    ticker           = context.get("ticker", "UNKNOWN")
     signal_direction = context.get("signal_direction", "LONG")
-    factor_score = context.get("factor_score", 0.5)
-    regime = context.get("regime", "NEUTRAL")
-    search = context.get("search", {})
-    memory = context.get("memory", {})
+    factor_score     = context.get("factor_score", 0.5)
+    regime           = context.get("regime", "NEUTRAL")
+    search           = context.get("search", {})
+    memory           = context.get("memory", {})
 
-    # Format knowledge rules
     rules_text = "\n".join(
-        f"  - {r}" for r in memory.get("knowledge_rules", [])
+        f"  - {r}" for r in memory.get("knowledge_rules", [])[:MAX_KNOWLEDGE_RULES]
     ) or "  - No specific rules found."
 
-    # Format memory stats
-    if memory.get("win_rate") is not None:
-        stats_text = (
-            f"win_rate={memory['win_rate']:.0f}%, "
-            f"avg_return={memory.get('avg_return', 0):+.1f}%, "
-            f"n={memory.get('sample_size', 0)}, "
-            f"query_level={memory.get('query_level', 'unknown')}"
-        )
-    else:
-        stats_text = memory.get("stats_note", "No reliable stats available.")
+    event_risk = memory.get("event_risk_flag")
+    risk_line  = f"  *** BINARY EVENT: {event_risk} — consider NO_POSITION ***" if event_risk else ""
 
-    prompt = f"""{FEW_SHOT}
+    return f"""{FEW_SHOT}
 
 ─────────────────────────────────────
 NOW DECIDE FOR THIS STOCK:
@@ -175,30 +232,87 @@ SEARCH AGENT FINDINGS:
   Summary          : {search.get('summary', 'No summary.')}
   Risk flag        : {search.get('risk_flag', 'none')}
 
+UPCOMING EVENTS (risk check):
+{_format_events(memory.get('upcoming_events', []))}
+{risk_line}
+
+ANALYST RATINGS (last 30 days):
+{_format_ratings(memory.get('analyst_ratings', []))}
+
+SEC FILINGS (recent 8-K / 10-Q):
+{_format_sec(memory.get('sec_filings', []))}
+
 MEMORY AGENT FINDINGS:
-  Historical stats : {stats_text}
-  Confidence       : {memory.get('confidence_in_prior', 'NONE')}
   Context          : {memory.get('context_summary', 'No context.')}
   Knowledge rules  :
 {rules_text}
+  Similar past cases:
+{_format_cases(memory.get('similar_cases', []))}
 
 Start your Thought chain now, then output Action and final JSON."""
 
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=900,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
-    )
 
-    raw = response.content[0].text
-    result = _extract_json(raw)
+def run(context: dict) -> dict:
+    """
+    Run the Decision Agent for a single ticker.
+    Retries up to MAX_DECISION_RETRIES times on schema validation failure.
 
-    result["ticker"] = ticker
-    result["factor_score"] = factor_score
+    Args:
+        context: output of merge.merge()
+
+    Returns:
+        Final decision dict with signal, confidence, reason, holding_period_days.
+    """
+    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
+    ticker = context.get("ticker", "UNKNOWN")
+    factor_score = context.get("factor_score", 0.5)
+
+    prompt = _build_prompt(context)
+    messages = [{"role": "user", "content": prompt}]
+
+    for attempt in range(MAX_DECISION_RETRIES + 1):
+        response = client.messages.create(
+            model=ANALYST_MODEL,
+            max_tokens=DECISION_AGENT_MAX_TOKENS,
+            system=[{
+                "type": "text",
+                "text": SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"},
+            }],
+            messages=messages,
+        )
+
+        raw = response.content[0].text
+        result = _extract_json(raw)
+
+        if result is None:
+            errors = ["JSON parse failed"]
+        else:
+            errors = _validate(result)
+
+        if not errors:
+            break
+
+        print(f"  [decision_agent] {ticker}: attempt {attempt+1} failed — {errors}")
+
+        if attempt < MAX_DECISION_RETRIES:
+            # Feed the error back so Claude can self-correct
+            messages.append({"role": "assistant", "content": raw})
+            messages.append({
+                "role": "user",
+                "content": (
+                    f"Your output has validation errors: {errors}. "
+                    "Output ONLY the corrected JSON, no other text."
+                ),
+            })
+        else:
+            print(f"  [decision_agent] {ticker}: all retries exhausted, using fallback")
+            return _fallback(ticker)
+
+    result["ticker"]           = ticker
+    result["factor_score"]     = factor_score
     result["full_react_output"] = raw
 
-    # Override holding_period_days with 0 for NO_POSITION
     if result.get("signal") == "NO_POSITION":
         result["holding_period_days"] = 0
 

@@ -69,30 +69,12 @@ def merge(
         "search_count":      search_result.get("search_count", 0),
     }
 
-    # ── Memory context (gated by confidence) ─────────────────
-    confidence_in_prior = memory_result.get("confidence_in_prior", "NONE")
-    include_stats = confidence_in_prior == "HIGH"
-
+    # ── Memory context ────────────────────────────────────────
     memory_context: dict = {
-        "confidence_in_prior": confidence_in_prior,
-        "knowledge_rules":     memory_result.get("knowledge_rules", [])[:5],
-        "context_summary":     memory_result.get("context_summary", "No historical context."),
+        "knowledge_rules": memory_result.get("knowledge_rules", [])[:5],
+        "similar_cases":   memory_result.get("similar_cases", []),
+        "context_summary": memory_result.get("context_summary", "No historical context."),
     }
-
-    if include_stats:
-        memory_context.update({
-            "win_rate":    memory_result.get("win_rate"),
-            "avg_return":  memory_result.get("avg_return"),
-            "sample_size": memory_result.get("sample_size"),
-            "query_level": memory_result.get("query_level"),
-        })
-    else:
-        memory_context["stats_note"] = (
-            f"Historical stats not injected "
-            f"(confidence_in_prior={confidence_in_prior}, "
-            f"sample_size={memory_result.get('sample_size', 'unknown')}). "
-            f"Rely on knowledge rules only."
-        )
 
     # ── Assemble final context ────────────────────────────────
     return {

@@ -18,6 +18,7 @@ from pathlib import Path
 import anthropic
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import JUDGE_MODEL, JUDGE_MAX_TOKENS
 
 
 # ─────────────────────────────────────────────────────────────
@@ -81,8 +82,8 @@ Return ONLY a single integer: 1, 2, or 3"""
 
     try:
         response = client.messages.create(
-            model      = "claude-sonnet-4-6",
-            max_tokens = 10,
+            model      = JUDGE_MODEL,
+            max_tokens = JUDGE_MAX_TOKENS,
             messages   = [{"role": "user", "content": prompt}],
         )
         score = int(response.content[0].text.strip())

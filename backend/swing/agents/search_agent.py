@@ -2,55 +2,75 @@
 agents/search_agent.py - Search Agent for Swing Trade Phase 2.
 
 Responsibilities:
-  - Fetch Yahoo Finance headlines for a ticker (free, no API key)
-  - Run a ReAct loop: assess all headlines, decide whether to
-    search for more via Tavily, stop when information is sufficient
+  - Fetch Yahoo Finance headlines for a ticker
+  - Use Claude native tool_use (not hand-parsed ReAct) to decide
+    whether to call Tavily for deeper research
   - Return a structured catalyst summary for the Decision Agent
 
-ReAct loop:
-  - Agent sees ALL Yahoo headlines upfront
-  - Decides itself: sufficient? search? what query?
-  - Max 2 Tavily searches to control cost
-  - Always identifies highest-impact event before classifying
+Tool Registry:
+  web_search — calls Tavily API, max MAX_TAVILY_SEARCHES times
 """
 
 import json
 import os
+import sys
 import warnings
+from pathlib import Path
 from typing import Optional
 
 import anthropic
 
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from config import SEARCH_AGENT_MODEL, SEARCH_AGENT_MAX_TOKENS, MAX_TAVILY_SEARCHES
+
 warnings.filterwarnings("ignore")
 
-MAX_TAVILY_CALLS = 2
+
+# ─────────────────────────────────────────────────────────────
+# Tool Registry — registered with Claude via tools=[]
+# ─────────────────────────────────────────────────────────────
+
+TOOLS = [
+    {
+        "name": "web_search",
+        "description": (
+            "Search the web for recent financial news about a stock. "
+            "Use when Yahoo headlines are insufficient to identify the catalyst. "
+            f"You may call this at most {MAX_TAVILY_SEARCHES} times."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query, e.g. 'AAPL earnings Q2 2025 beat miss'",
+                }
+            },
+            "required": ["query"],
+        },
+    }
+]
+
 
 SYSTEM_PROMPT = """You are a financial research agent analyzing stocks for swing trading.
 
-Your job is to gather sufficient information about a stock's recent catalyst and news.
-
-You MUST follow this exact ReAct format for every step:
-
-Thought: [your reasoning about what you know and what you still need]
-Action: search(query) | stop
-Observation: [result of action - filled in by the system]
+Your job: given Yahoo Finance headlines and the option to search for more, identify the
+most important catalyst driving this stock's price move and assess its strength.
 
 Rules:
-- Use Action: search(your query here) to search for more information
-- Use Action: stop when you have enough information
-- You have enough information when:
-  * You know the catalyst type (earnings / contract / FDA / macro / none)
-  * You have at least 2 independent sources OR confirmed there is no news
-  * You understand if the price move is proportional to the catalyst
-- Maximum 2 searches allowed - be efficient
-- If no meaningful catalyst exists after searching, that IS useful information
+- Scan ALL provided headlines before deciding to search
+- Use web_search only when headlines are insufficient to identify the catalyst type
+- You have enough information when you know:
+  * The catalyst type (earnings / contract / FDA / macro / none)
+  * Whether the move is proportional to the catalyst
+  * At least 2 independent sources, OR confirmed there is no news
 
 CRITICAL — before classifying catalyst_type:
-1. List ALL headlines you have seen (Yahoo + any Tavily results)
-2. Identify which single event has the LARGEST price impact on this stock
-3. Classify catalyst_type based on THAT event — not the first headline you saw
+1. List ALL headlines you have seen
+2. Identify which single event has the LARGEST price impact
+3. Classify catalyst_type based on THAT event
 
-After Action: stop, output ONLY this JSON (no markdown):
+When you have enough information, output ONLY this JSON (no markdown, no other text):
 {
   "catalyst_type": "EARNINGS_BEAT|EARNINGS_MISS|CONTRACT_WIN|DEAL_WIN|FDA_APPROVAL|FDA_FAST_TRACK|MACRO|ANALYST_UPGRADE|ANALYST_DOWNGRADE|NO_CATALYST|OTHER",
   "catalyst_strength": "STRONG|MODERATE|WEAK|NONE",
@@ -62,6 +82,81 @@ After Action: stop, output ONLY this JSON (no markdown):
 }"""
 
 
+# ─────────────────────────────────────────────────────────────
+# Tool executor
+# ─────────────────────────────────────────────────────────────
+
+def _execute_web_search(query: str) -> str:
+    try:
+        import requests
+        api_key = os.environ.get("TAVILY_API_KEY", "")
+        if not api_key:
+            return "Tavily API key not set — web search unavailable."
+        resp = requests.post(
+            "https://api.tavily.com/search",
+            json={
+                "api_key": api_key,
+                "query": query,
+                "search_depth": "basic",
+                "max_results": 3,
+                "include_answer": True,
+            },
+            timeout=10,
+        )
+        data = resp.json()
+        lines = []
+        if data.get("answer"):
+            lines.append(f"Summary: {data['answer']}")
+        for r in data.get("results", [])[:3]:
+            lines.append(
+                f"  [{r.get('source', 'web')}] {r.get('title', '')} "
+                f"— {r.get('content', '')[:120]}"
+            )
+        return "\n".join(lines) if lines else "No results found."
+    except Exception as e:
+        return f"Search failed: {e}"
+
+
+def _execute_tool(tool_name: str, tool_input: dict) -> str:
+    if tool_name == "web_search":
+        return _execute_web_search(tool_input["query"])
+    return f"Unknown tool: {tool_name}"
+
+
+# ─────────────────────────────────────────────────────────────
+# Output parser
+# ─────────────────────────────────────────────────────────────
+
+def _extract_json(text: str) -> dict | None:
+    try:
+        cleaned = text.replace("```json", "").replace("```", "").strip()
+        start = cleaned.find("{")
+        end = cleaned.rfind("}") + 1
+        if start != -1 and end > start:
+            return json.loads(cleaned[start:end])
+    except Exception:
+        pass
+    return None
+
+
+def _fallback_result(ticker: str, search_count: int) -> dict:
+    return {
+        "catalyst_type":     "OTHER",
+        "catalyst_strength": "WEAK",
+        "news_alignment":    "NEUTRAL",
+        "sources":           [],
+        "summary":           "Search agent parse error — analysis unavailable.",
+        "risk_flag":         "parse_error",
+        "search_count":      search_count,
+        "ticker":            ticker,
+        "react_trace":       [],
+    }
+
+
+# ─────────────────────────────────────────────────────────────
+# Main agent loop (native tool_use)
+# ─────────────────────────────────────────────────────────────
+
 def _format_headlines(articles: list) -> str:
     if not articles:
         return "No headlines found from Yahoo Finance."
@@ -71,62 +166,6 @@ def _format_headlines(articles: list) -> str:
     )
 
 
-def _call_tavily(query: str) -> str:
-    try:
-        import requests
-        api_key = os.environ.get("TAVILY_API_KEY", "")
-        if not api_key:
-            return "Tavily API key not set — skipping web search."
-        resp = requests.post(
-            "https://api.tavily.com/search",
-            json={"api_key": api_key, "query": query,
-                  "search_depth": "basic", "max_results": 3, "include_answer": True},
-            timeout=10,
-        )
-        data = resp.json()
-        lines = []
-        if data.get("answer"):
-            lines.append(f"Summary: {data['answer']}")
-        for r in data.get("results", [])[:3]:
-            lines.append(f"  [{r.get('source','web')}] {r.get('title','')} — {r.get('content','')[:120]}")
-        return "\n".join(lines) if lines else "No results found."
-    except Exception as e:
-        return f"Search failed: {e}"
-
-
-def _parse_action(text: str) -> tuple[str, Optional[str]]:
-    for line in text.split("\n"):
-        line = line.strip()
-        if line.startswith("Action:"):
-            action = line[len("Action:"):].strip()
-            if action.lower().startswith("search(") and action.endswith(")"):
-                query = action[len("search("):-1].strip().strip('"').strip("'")
-                return "search", query
-            elif action.lower() == "stop":
-                return "stop", None
-    return "stop", None
-
-
-def _extract_json(text: str) -> dict:
-    try:
-        cleaned = text.replace("```json", "").replace("```", "").strip()
-        start = cleaned.find("{")
-        end = cleaned.rfind("}") + 1
-        if start != -1 and end > start:
-            return json.loads(cleaned[start:end])
-    except Exception:
-        pass
-    return {
-        "catalyst_type": "OTHER",
-        "catalyst_strength": "WEAK",
-        "news_alignment": "NEUTRAL",
-        "sources": [],
-        "summary": "Parse error — analysis unavailable.",
-        "risk_flag": "parse_error",
-        "search_count": 0,
-    }
-
-
 def run(
     ticker: str,
     signal_direction: str,
@@ -134,83 +173,125 @@ def run(
     regime: str,
     yahoo_articles: list,
 ) -> dict:
+    """
+    Run the Search Agent using Claude native tool_use.
+
+    Args:
+        ticker           : stock symbol
+        signal_direction : "LONG" or "SHORT"
+        factor_score     : composite score from scanner (0-1)
+        regime           : current market regime
+        yahoo_articles   : list of {title, publisher} dicts from Yahoo
+
+    Returns:
+        Structured catalyst summary dict for merge() and Decision Agent.
+    """
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
     headlines_text = _format_headlines(yahoo_articles)
 
-    initial_message = f"""Analyze this swing trade candidate:
+    messages = [{
+        "role": "user",
+        "content": (
+            f"Analyze this swing trade candidate:\n\n"
+            f"Ticker: {ticker} | Direction: {signal_direction} | "
+            f"Score: {factor_score:.3f} | Regime: {regime}\n\n"
+            f"Yahoo Finance headlines (assess ALL before deciding):\n"
+            f"{headlines_text}\n\n"
+            f"Identify the highest-impact catalyst, use web_search if needed, "
+            f"then output the final JSON."
+        ),
+    }]
 
-Ticker: {ticker} | Direction: {signal_direction} | Score: {factor_score:.3f} | Regime: {regime}
-
-Yahoo Finance headlines (all available — assess ALL before deciding):
-{headlines_text}
-
-Start your ReAct analysis. Scan all headlines, identify the highest-impact event, then decide if you need more information."""
-
-    messages = [{"role": "user", "content": initial_message}]
     search_count = 0
-    react_trace = []
+    react_trace  = []
 
-    print(f"  [search_agent] {ticker}: starting ReAct loop")
+    print(f"  [search_agent] {ticker}: starting tool_use loop")
 
-    for turn in range(MAX_TAVILY_CALLS + 2):
+    # Agent loop: Claude decides when to call tools and when to stop
+    for turn in range(MAX_TAVILY_SEARCHES + 3):
         response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=500,
-            system=SYSTEM_PROMPT,
+            model=SEARCH_AGENT_MODEL,
+            max_tokens=SEARCH_AGENT_MAX_TOKENS,
+            system=[{
+                "type": "text",
+                "text": SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"},
+            }],
+            tools=TOOLS,
             messages=messages,
         )
 
-        assistant_text = response.content[0].text
-        messages.append({"role": "assistant", "content": assistant_text})
-        react_trace.append({"turn": turn, "output": assistant_text})
+        messages.append({"role": "assistant", "content": response.content})
 
-        action_type, query = _parse_action(assistant_text)
+        # Claude finished — extract final JSON from text block
+        if response.stop_reason == "end_turn":
+            final_text = ""
+            for block in response.content:
+                if hasattr(block, "text"):
+                    final_text = block.text
+                    break
 
-        if action_type == "stop":
-            print(f"  [search_agent] {ticker}: stopped after {search_count} searches")
-            break
+            react_trace.append({"turn": turn, "stop": "end_turn", "output": final_text[:200]})
+            result = _extract_json(final_text)
 
-        if action_type == "search":
-            if search_count >= MAX_TAVILY_CALLS:
-                # Force stop
-                messages.append({"role": "user", "content": "Max searches reached. Action: stop"})
-                react_trace.append({"turn": turn, "forced": "max_searches"})
-                response = client.messages.create(
-                    model="claude-sonnet-4-6",
-                    max_tokens=400,
-                    system=SYSTEM_PROMPT,
-                    messages=messages,
-                )
-                assistant_text = response.content[0].text
-                messages.append({"role": "assistant", "content": assistant_text})
-                react_trace.append({"turn": turn + 1, "output": assistant_text})
-                break
+            if result is None:
+                print(f"  [search_agent] {ticker}: JSON parse failed, using fallback")
+                return _fallback_result(ticker, search_count)
 
-            print(f"  [search_agent] {ticker}: searching → {query}")
-            search_result = _call_tavily(query)
-            search_count += 1
-            messages.append({"role": "user", "content": f"Observation: {search_result}"})
-            react_trace.append({"turn": turn, "search": query, "result_preview": search_result[:100]})
+            result["search_count"] = search_count
+            result["ticker"]       = ticker
+            result["react_trace"]  = react_trace
+            print(f"  [search_agent] {ticker}: done ({search_count} searches, catalyst={result.get('catalyst_type')})")
+            return result
 
-    final_text = messages[-1]["content"] if messages[-1]["role"] == "assistant" else ""
-    result = _extract_json(final_text)
-    result["search_count"] = search_count
-    result["ticker"] = ticker
-    result["react_trace"] = react_trace
+        # Claude wants to call a tool
+        if response.stop_reason == "tool_use":
+            tool_results = []
 
-    return result
+            for block in response.content:
+                if block.type != "tool_use":
+                    continue
+
+                tool_name  = block.name
+                tool_input = block.input
+                tool_id    = block.id
+
+                if search_count >= MAX_TAVILY_SEARCHES:
+                    # Deny the call — tell Claude it hit the limit
+                    tool_output = f"Search limit ({MAX_TAVILY_SEARCHES}) reached. Use only what you have."
+                    print(f"  [search_agent] {ticker}: search limit reached, denying call")
+                else:
+                    print(f"  [search_agent] {ticker}: calling {tool_name}({tool_input.get('query', '')})")
+                    tool_output  = _execute_tool(tool_name, tool_input)
+                    search_count += 1
+
+                react_trace.append({
+                    "turn":   turn,
+                    "tool":   tool_name,
+                    "input":  tool_input,
+                    "result": tool_output[:100],
+                })
+                tool_results.append({
+                    "type":        "tool_result",
+                    "tool_use_id": tool_id,
+                    "content":     tool_output,
+                })
+
+            messages.append({"role": "user", "content": tool_results})
+
+    # Exceeded max turns without end_turn — fallback
+    print(f"  [search_agent] {ticker}: max turns exceeded, using fallback")
+    return _fallback_result(ticker, search_count)
 
 
 # ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    import sys
-    sys.path.append(str(__import__("pathlib").Path(__file__).parent.parent))
+    sys.path.append(str(Path(__file__).parent.parent))
     from swing.data import fetch_news
 
-    ticker = "GS"
-    print(f"Testing Search Agent on {ticker}...\n")
+    ticker   = "GS"
     articles = fetch_news(ticker, max_articles=5)
-    print(f"Yahoo headlines fetched: {len(articles)}\n")
+    print(f"Yahoo headlines: {len(articles)}\n")
 
     result = run(
         ticker=ticker,

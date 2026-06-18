@@ -69,16 +69,17 @@ async def analyze_candidate(
     # Fetch Yahoo headlines (sync, fast — called before async)
     yahoo_articles = fetch_news(ticker, max_articles=5)
 
-    # Run Search and Memory agents in parallel via asyncio.to_thread
-    search_result, memory_result = await asyncio.gather(
-        asyncio.to_thread(
-            search_agent_run,
-            ticker, signal_direction, factor_score, regime, yahoo_articles,
-        ),
-        asyncio.to_thread(
-            memory_agent_run,
-            ticker, signal_direction, regime, factors_used,
-        ),
+    # Search Agent first — Memory Agent needs catalyst_type from its output
+    search_result = await asyncio.to_thread(
+        search_agent_run,
+        ticker, signal_direction, factor_score, regime, yahoo_articles,
+    )
+
+    # Memory Agent second — now has catalyst_type for semantic retrieval
+    memory_result = await asyncio.to_thread(
+        memory_agent_run,
+        ticker, signal_direction, regime, factors_used,
+        search_result.get("catalyst_type"),
     )
 
     

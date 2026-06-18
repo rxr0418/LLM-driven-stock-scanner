@@ -5,6 +5,7 @@ on:
     - cron: '30 23 * * 1-5'  # Swing scan: LA 4:30 PM (summer UTC-7)
     - cron: '30 13 * * 1-5'  # Day trade scan: LA 6:30 AM (summer UTC-7)
     - cron: '0 15 * * 1-5'   # Premarket outcomes: LA 8:00 AM (30min after open)
+    - cron: '0 14 * * 1'      # SEC filings refresh: Monday 7:00 AM LA
   workflow_dispatch:
 
 jobs:
@@ -20,6 +21,14 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: cd backend && pip install -r requirements.txt
+      - name: Refresh RAG data
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SUPABASE_URL:   ${{ secrets.SUPABASE_URL }}
+        run: |
+          cd backend
+          python rag/fetch_events.py
+          python rag/fetch_ratings.py
       - name: Run swing scan
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -73,3 +82,22 @@ jobs:
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           SUPABASE_URL:    ${{ secrets.SUPABASE_URL }}
         run: cd backend && python premarket/update_premarket_outcomes.py
+
+  rag_sec_weekly:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.schedule == '0 14 * * 1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: cd backend && pip install -r requirements.txt
+      - name: Fetch SEC filings
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
+          SUPABASE_URL:      ${{ secrets.SUPABASE_URL }}
+        run: cd backend && python rag/fetch_sec.py --limit 2
