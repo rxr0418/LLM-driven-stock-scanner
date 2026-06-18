@@ -363,7 +363,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(f"Fetching price data ({len(UNIVERSE)} tickers, 252d)...")
-    price_data = fetch_price_data(UNIVERSE, lookback_days=252)
+    price_data = fetch_price_data(UNIVERSE, lookback_days=365)  # 365 calendar ≈ 252 trading days
     close  = price_data["close"]
     volume = price_data["volume"]
     print(f"Data: {close.shape[0]} days × {close.shape[1]} stocks\n")
