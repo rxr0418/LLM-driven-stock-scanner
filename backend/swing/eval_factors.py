@@ -42,6 +42,11 @@ def compute_ic_series(
         return float("nan")
     f = factor_scores.loc[common]
     r = forward_returns.loc[common]
+    # Drop rows where either series is NaN
+    mask = f.notna() & r.notna()
+    f, r = f[mask], r[mask]
+    if len(f) < 20:
+        return float("nan")
     ic, _ = stats.spearmanr(f.values, r.values)
     return float(ic)
 

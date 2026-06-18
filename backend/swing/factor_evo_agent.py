@@ -213,7 +213,10 @@ def _evaluate_proposal(
             f"IR_test={ic_result['ir_test']:.3f}"
         )
     else:
-        print(f"  [evo] {name}: eval error — {ic_result.get('error')}")
+        status = ic_result.get("status", "unknown")
+        error  = ic_result.get("error", "")
+        print(f"  [evo] {name}: FAILED status={status}" + (f" — {error}" if error else ""))
+        print(f"  [evo] code preview: {proposal.get('code','')[:120].strip()}")
 
     return proposal, ic_result
 

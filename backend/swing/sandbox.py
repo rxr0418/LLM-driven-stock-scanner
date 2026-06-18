@@ -26,11 +26,15 @@ from pathlib import Path
 
 # Node types that are unconditionally forbidden
 FORBIDDEN_NODES = {
-    ast.Import,
-    ast.ImportFrom,
     ast.Global,
     ast.Nonlocal,
     ast.Delete,
+}
+
+# These specific imports are safe — sandbox worker already provides np and pd
+ALLOWED_IMPORTS = {
+    ("numpy", "np"),    # import numpy as np
+    ("pandas", "pd"),   # import pandas as pd
 }
 
 # Names forbidden in any context (function calls, attribute access, etc.)
@@ -77,6 +81,19 @@ class ASTBlacklistVisitor(ast.NodeVisitor):
             self.violations.append(
                 f"Forbidden AST node: {type(node).__name__} at line {getattr(node, 'lineno', '?')}"
             )
+        # Allow only numpy/pandas imports; block everything else
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if (alias.name, alias.asname) not in ALLOWED_IMPORTS:
+                    self.violations.append(
+                        f"Forbidden import '{alias.name}' at line {node.lineno}"
+                    )
+            return  # don't generic_visit — children already handled
+        if isinstance(node, ast.ImportFrom):
+            self.violations.append(
+                f"Forbidden 'from' import at line {node.lineno}"
+            )
+            return
         # Check Name nodes
         if isinstance(node, ast.Name):
             if node.id in FORBIDDEN_NAMES:
@@ -112,11 +129,12 @@ def ast_check(code: str) -> list[str]:
 WORKER_TEMPLATE = '''
 import json, sys, numpy as np, pandas as pd
 
-close_json  = json.loads(sys.argv[1])
-volume_json = json.loads(sys.argv[2])
+data_path = sys.argv[1]
+with open(data_path) as f:
+    data = json.load(f)
 
-close  = pd.DataFrame(close_json)
-volume = pd.DataFrame(volume_json)
+close  = pd.DataFrame(data["close"])
+volume = pd.DataFrame(data["volume"])
 
 {user_code}
 
@@ -169,25 +187,37 @@ def run_factor_in_sandbox(
     if violations:
         return {"status": "ast_error", "violations": violations, "scores": {}}
 
-    # Serialize price data for subprocess (use last 90 rows to keep payload small)
+    # Write price data to temp file (avoids ARG_MAX limit on command line)
     try:
         import pandas as pd
-        close_json  = close.tail(90).to_json()
-        volume_json = volume.tail(90).to_json()
+        c = close.tail(90).copy()
+        v = volume.tail(90).copy()
+        c.index = c.index.astype(str)
+        v.index = v.index.astype(str)
+        data_payload = {"close": c.to_dict(), "volume": v.to_dict()}
     except Exception as e:
         return {"status": "runtime_error", "error": f"serialization failed: {e}", "scores": {}}
 
-    # Write worker script to temp file
-    worker_code = WORKER_TEMPLATE.format(user_code=textwrap.indent(code, "    " * 0))
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".py", delete=False, prefix="factor_sandbox_"
-    ) as f:
-        f.write(worker_code)
-        worker_path = f.name
-
+    data_file   = None
+    worker_path = None
     try:
+        # Write data file
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, prefix="factor_data_"
+        ) as df:
+            json.dump(data_payload, df)
+            data_file = df.name
+
+        # Write worker script
+        worker_code = WORKER_TEMPLATE.format(user_code=textwrap.indent(code, ""))
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".py", delete=False, prefix="factor_sandbox_"
+        ) as wf:
+            wf.write(worker_code)
+            worker_path = wf.name
+
         proc = subprocess.run(
-            [sys.executable, worker_path, close_json, volume_json],
+            [sys.executable, worker_path, data_file],
             capture_output=True,
             text=True,
             timeout=SANDBOX_TIMEOUT_SECONDS,
@@ -211,10 +241,12 @@ def run_factor_in_sandbox(
     except Exception as e:
         return {"status": "runtime_error", "error": str(e), "scores": {}}
     finally:
-        try:
-            os.unlink(worker_path)
-        except Exception:
-            pass
+        for path in (worker_path, data_file):
+            if path:
+                try:
+                    os.unlink(path)
+                except Exception:
+                    pass
 
 
 # ─────────────────────────────────────────────────────────────
