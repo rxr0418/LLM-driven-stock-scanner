@@ -1,5 +1,5 @@
 """
-swing/eval_factors.py - Factor IC evaluation with train/test split.
+swing/factor_evo/eval_factors.py - Factor IC evaluation with train/test split.
 
 Computes Spearman Rank IC (Information Coefficient) between factor scores
 and forward returns. Used by Factor Evo Agent to evaluate generated factors.
@@ -224,7 +224,7 @@ def evaluate_generated_factor(
 
 if __name__ == "__main__":
     import sys
-    sys.path.append(str(__import__("pathlib").Path(__file__).parent.parent))
+    sys.path.append(str(__import__("pathlib").Path(__file__).parent.parent.parent))
     from dotenv import load_dotenv
     load_dotenv()
 

@@ -1,5 +1,5 @@
 """
-swing/sandbox.py - Safe execution environment for LLM-generated factor code.
+swing/factor_evo/sandbox.py - Safe execution environment for LLM-generated factor code.
 
 Two-layer defence:
   1. AST blacklist  : reject code before execution if it uses forbidden nodes

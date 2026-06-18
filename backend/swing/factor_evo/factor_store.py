@@ -1,5 +1,5 @@
 """
-swing/factor_store.py - Persist winning factors and IC history to Supabase.
+swing/factor_evo/factor_store.py - Persist winning factors and IC history to Supabase.
 
 Tables:
   evolved_factors      : approved factor code + metadata + IC results
@@ -18,7 +18,7 @@ from typing import Optional
 
 warnings.filterwarnings("ignore")
 
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
 # IC threshold to consider a factor worth keeping
 IC_THRESHOLD     = 0.02

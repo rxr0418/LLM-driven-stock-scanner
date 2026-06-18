@@ -1,5 +1,5 @@
 """
-swing/factor_evo_agent.py - LLM-driven factor evolution agent.
+swing/factor_evo/factor_evo_agent.py - LLM-driven factor evolution agent.
 
 Inspired by CogAlpha (arXiv:2511.18850). Each generation:
   1. GENERATE  : Claude proposes N new factor expressions given regime + IC leaderboard
@@ -12,7 +12,7 @@ Fitness function: Spearman IC on out-of-sample (test) data.
 Stopping condition: max_generations reached or IC plateaus.
 
 Usage:
-  python swing/factor_evo_agent.py --regime TRENDING --generations 3
+  python swing/factor_evo/factor_evo_agent.py --regime TRENDING --generations 3
 """
 
 import json
@@ -26,7 +26,7 @@ import anthropic
 
 warnings.filterwarnings("ignore")
 
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 from config import ANALYST_MODEL
 
 IC_THRESHOLD   = 0.02
@@ -188,8 +188,8 @@ def _evaluate_proposal(
     Run sandbox + IC eval for one proposed factor.
     Returns (proposal_with_result, ic_result).
     """
-    from swing.sandbox import run_factor_in_sandbox
-    from swing.eval_factors import evaluate_generated_factor
+    from swing.factor_evo.sandbox import run_factor_in_sandbox
+    from swing.factor_evo.eval_factors import evaluate_generated_factor
 
     name = proposal["name"]
     code = proposal["code"]
@@ -256,7 +256,7 @@ def run_evolution(
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
 
     # Load baseline leaderboard from factor_store
-    from swing.factor_store import load_top_factors, save_factor
+    from swing.factor_evo.factor_store import load_top_factors, save_factor
     leaderboard = load_top_factors(regime, forward_days=forward_days, limit=5)
 
     all_results = []
@@ -348,7 +348,7 @@ def run_evolution(
 
 if __name__ == "__main__":
     import argparse
-    sys.path.append(str(Path(__file__).parent.parent))
+    sys.path.append(str(Path(__file__).parent.parent.parent))
     from dotenv import load_dotenv
     load_dotenv()
 
