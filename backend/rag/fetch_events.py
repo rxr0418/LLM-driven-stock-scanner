@@ -31,25 +31,34 @@ def fetch_earnings_date(ticker: str) -> dict | None:
     try:
         import yfinance as yf
         info = yf.Ticker(ticker).calendar
-        if info is None or info.empty:
+        if not info:
             return None
-        # calendar is a DataFrame with dates as columns
-        if "Earnings Date" in info.index:
-            raw = info.loc["Earnings Date"]
-            # can be a Series with 1-2 dates (range)
-            vals = raw.dropna().tolist()
-            if vals:
-                ev_date = vals[0]
-                if hasattr(ev_date, "date"):
-                    ev_date = ev_date.date()
-                days_away = (ev_date - date.today()).days
-                return {
-                    "ticker": ticker,
-                    "event_type": "EARNINGS",
-                    "event_date": str(ev_date),
-                    "days_away": days_away,
-                    "description": f"{ticker} earnings expected {ev_date} ({days_away}d away)",
-                }
+
+        # New yfinance returns a dict; old versions returned a DataFrame
+        if isinstance(info, dict):
+            dates = info.get("Earnings Date", [])
+            if not dates:
+                return None
+            ev_date = dates[0]
+        else:
+            # DataFrame fallback
+            if "Earnings Date" not in info.index:
+                return None
+            vals = info.loc["Earnings Date"].dropna().tolist()
+            if not vals:
+                return None
+            ev_date = vals[0]
+
+        if hasattr(ev_date, "date"):
+            ev_date = ev_date.date()
+        days_away = (ev_date - date.today()).days
+        return {
+            "ticker":      ticker,
+            "event_type":  "EARNINGS",
+            "event_date":  str(ev_date),
+            "days_away":   days_away,
+            "description": f"{ticker} earnings expected {ev_date} ({days_away}d away)",
+        }
     except Exception as e:
         print(f"  [events] {ticker}: yfinance error — {e}")
     return None

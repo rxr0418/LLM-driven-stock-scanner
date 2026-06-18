@@ -25,28 +25,25 @@ def fetch_ratings(ticker: str, lookback_days: int = 30) -> list[dict]:
     """Return recent analyst rating changes for ticker."""
     try:
         import yfinance as yf
-        import pandas as pd
-        rec = yf.Ticker(ticker).recommendations
+        rec = yf.Ticker(ticker).upgrades_downgrades
         if rec is None or rec.empty:
             return []
 
         cutoff = date.today() - timedelta(days=lookback_days)
-        # recommendations index is DatetimeIndex
         rec = rec[rec.index.date >= cutoff]
         if rec.empty:
             return []
 
         results = []
         for ts, row in rec.iterrows():
-            from_grade = row.get("From Grade", "") or ""
-            to_grade   = row.get("To Grade", "")   or ""
-            action     = row.get("Action", "")      or ""
-            firm       = row.get("Firm", "Unknown") or "Unknown"
+            from_grade = str(row.get("FromGrade", "") or "")
+            to_grade   = str(row.get("ToGrade",   "") or "")
+            action     = str(row.get("Action",    "") or "")
+            firm       = str(row.get("Firm", "Unknown") or "Unknown")
 
             if not to_grade:
                 continue
 
-            # Build human-readable summary for embedding
             if from_grade:
                 summary = f"{firm} {action} {ticker} from {from_grade} to {to_grade}"
             else:
@@ -54,10 +51,10 @@ def fetch_ratings(ticker: str, lookback_days: int = 30) -> list[dict]:
 
             results.append({
                 "ticker":      ticker,
-                "firm":        str(firm),
-                "old_rating":  str(from_grade),
-                "new_rating":  str(to_grade),
-                "action":      str(action),
+                "firm":        firm,
+                "old_rating":  from_grade,
+                "new_rating":  to_grade,
+                "action":      action,
                 "rating_date": str(ts.date()),
                 "summary":     summary,
             })

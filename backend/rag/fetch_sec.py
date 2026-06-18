@@ -32,7 +32,8 @@ load_dotenv()
 
 from swing.data import UNIVERSE
 
-EDGAR_BASE   = "https://data.sec.gov"
+EDGAR_BASE      = "https://data.sec.gov"
+EDGAR_ARCHIVES  = "https://www.sec.gov/Archives/edgar/data"
 EDGAR_SEARCH = "https://efts.sec.gov/LATEST/search-index"
 HEADERS      = {"User-Agent": "LLM-Stock-Scanner xingru.ren0418@gmail.com"}
 
@@ -94,7 +95,7 @@ def get_recent_filings(cik: str, form_types: list[str], limit: int = 3) -> list[
                     "form":         form,
                     "filed_date":   filed_date,
                     "accession":    acc,
-                    "document_url": f"{EDGAR_BASE}/Archives/edgar/data/{int(cik)}/{acc_clean}/{doc}",
+                    "document_url": f"{EDGAR_ARCHIVES}/{int(cik)}/{acc_clean}/{doc}",
                 })
                 if len(results) >= limit:
                     break
