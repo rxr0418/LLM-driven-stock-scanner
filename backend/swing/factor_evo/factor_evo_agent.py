@@ -353,23 +353,35 @@ if __name__ == "__main__":
     load_dotenv()
 
     from swing.data import fetch_price_data, UNIVERSE
+    from swing.regime import detect_regime
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--regime",      default="TRENDING",
-                        choices=["TRENDING", "VOLATILE", "NEUTRAL"])
+    parser.add_argument("--regime",      default=None,
+                        choices=["TRENDING", "VOLATILE", "NEUTRAL"],
+                        help="Override regime detection (default: auto-detect from market)")
     parser.add_argument("--forward",     type=int, default=5)
     parser.add_argument("--generations", type=int, default=2)
     parser.add_argument("--no-save",     action="store_true")
     args = parser.parse_args()
 
-    print(f"Fetching price data ({len(UNIVERSE)} tickers, 252d)...")
+    if args.regime:
+        regime = args.regime
+        print(f"Regime: {regime} (manual override)")
+    else:
+        print("Detecting current market regime...")
+        regime_result = detect_regime()
+        regime = regime_result["regime"]
+        print(f"Regime: {regime} (VIX={regime_result['vix']}, RVol={regime_result['realized_vol']:.1%}, Trend={regime_result['trend_strength']:.0%})")
+        print(f"  → {regime_result['description']}")
+
+    print(f"\nFetching price data ({len(UNIVERSE)} tickers, 365d)...")
     price_data = fetch_price_data(UNIVERSE, lookback_days=365)  # 365 calendar ≈ 252 trading days
     close  = price_data["close"]
     volume = price_data["volume"]
     print(f"Data: {close.shape[0]} days × {close.shape[1]} stocks\n")
 
     result = run_evolution(
-        regime=args.regime,
+        regime=regime,
         close=close,
         volume=volume,
         forward_days=args.forward,

@@ -22,6 +22,9 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 
+# Weight multiplier for IC-validated evolved factors vs hand-written factors
+EVOLVED_FACTOR_WEIGHT_MULTIPLIER = 1.5
+
 
 # ─────────────────────────────────────────────────────────────
 # 1. Factor definitions
@@ -101,7 +104,7 @@ def factor_vol_adjusted_reversal(close: pd.DataFrame, volume: pd.DataFrame) -> p
     return signal.dropna()
 
 
-# Factor registry: name → function
+# Factor registry: name → function (hand-written baseline factors)
 FACTOR_REGISTRY = {
     "reversal_5d":           factor_reversal_5d,
     "reversal_20d":          factor_reversal_20d,
@@ -110,6 +113,55 @@ FACTOR_REGISTRY = {
     "volume_spike":          factor_volume_spike,
     "vol_adjusted_reversal": factor_vol_adjusted_reversal,
 }
+
+
+def load_evolved_factors(regime: str, forward_days: int = 5) -> dict:
+    """
+    Load IC-validated evolved factors from Supabase for the given regime.
+    Compiles each factor's code string into a callable and returns a dict:
+      { factor_name: {"fn": callable, "ic_mean_test": float, "ir_test": float} }
+
+    Called once per scan run — no LLM involved, just DB read + exec().
+    Falls back to empty dict silently if DB is unavailable.
+    """
+    try:
+        from swing.factor_evo.factor_store import load_top_factors
+        rows = load_top_factors(regime, forward_days=forward_days, limit=5)
+    except Exception as e:
+        print(f"[scanner] evolved factor load skipped: {e}")
+        return {}
+
+    from swing.factor_evo.sandbox import ast_check
+
+    loaded = {}
+    for row in rows:
+        name = row["name"]
+        code = row["code"]
+        try:
+            # Re-verify AST safety on every load — defence-in-depth against
+            # DB tampering or a sandboxed payload that slipped past generation checks.
+            violations = ast_check(code)
+            if violations:
+                print(f"[scanner] evolved:{name} failed AST re-check on load, skipping: {violations[0]}")
+                continue
+
+            namespace = {"pd": pd, "np": np}
+            exec(compile(code, f"<evolved:{name}>", "exec"), namespace)  # noqa: S102
+            fn = namespace.get("factor_generated")
+            if fn is None:
+                print(f"[scanner] evolved:{name} has no factor_generated, skipping")
+                continue
+            loaded[name] = {
+                "fn":           fn,
+                "ic_mean_test": row.get("ic_mean_test", 0.0),
+                "ir_test":      row.get("ir_test", 0.0),
+            }
+            print(f"[scanner] loaded evolved factor: {name} "
+                  f"(IC_test={row.get('ic_mean_test', 0):+.4f}, IR={row.get('ir_test', 0):.3f})")
+        except Exception as e:
+            print(f"[scanner] evolved:{name} compile failed: {e}")
+
+    return loaded
 
 
 # ─────────────────────────────────────────────────────────────
@@ -202,39 +254,63 @@ def run_scan(
     if close is None or close.empty:
         return {"error": "No price data available"}
 
-    # ── Select factors based on regime ───────────────────────
+    regime_label = regime_result["regime"]
+
+    # ── Select hand-written factors based on regime ───────────
     factors_to_use = regime_result.get(
         "recommended_factors",
         ["momentum_20d", "reversal_5d", "volume_spike"]
     )
 
-    print(f"[scanner] Regime: {regime_result['regime']}")
-    print(f"[scanner] Using factors: {factors_to_use}")
+    print(f"[scanner] Regime: {regime_label}")
+    print(f"[scanner] Hand-written factors: {factors_to_use}")
 
-    # ── Compute each factor ───────────────────────────────────
+    # ── Load evolved factors for this regime ──────────────────
+    evolved = load_evolved_factors(regime_label)
+    if evolved:
+        print(f"[scanner] Evolved factors loaded: {list(evolved.keys())}")
+
+    # ── Compute each hand-written factor ─────────────────────
     factor_scores_dict = {}
+    weights: dict[str, float] = {}
 
     for factor_name in factors_to_use:
         fn = FACTOR_REGISTRY.get(factor_name)
         if fn is None:
             print(f"[scanner] Unknown factor: {factor_name}, skipping")
             continue
-
         try:
             scores = fn(close, volume)
             if scores.empty:
                 print(f"[scanner] {factor_name}: no valid scores, skipping")
                 continue
             factor_scores_dict[factor_name] = scores
+            weights[factor_name] = 1.0
             print(f"[scanner] {factor_name}: scored {len(scores)} stocks")
         except Exception as e:
             print(f"[scanner] {factor_name} failed: {e}")
 
+    # ── Compute each evolved factor ───────────────────────────
+    for name, meta in evolved.items():
+        try:
+            scores = meta["fn"](close, volume)
+            if scores.empty:
+                continue
+            factor_scores_dict[name] = scores
+            weights[name] = EVOLVED_FACTOR_WEIGHT_MULTIPLIER
+            print(f"[scanner] evolved:{name}: scored {len(scores)} stocks (weight={EVOLVED_FACTOR_WEIGHT_MULTIPLIER}×)")
+        except Exception as e:
+            print(f"[scanner] evolved:{name} runtime failed: {e}")
+
     if not factor_scores_dict:
         return {"error": "All factors failed"}
 
+    # Normalize weights so they sum to 1
+    total_weight = sum(weights.values())
+    weights = {k: v / total_weight for k, v in weights.items()}
+
     # ── Combine into composite score ──────────────────────────
-    composite = combine_factors(factor_scores_dict)
+    composite = combine_factors(factor_scores_dict, weights=weights)
 
     # ── Build watchlist ───────────────────────────────────────
     long_candidates  = composite.head(top_n)
@@ -253,6 +329,7 @@ def run_scan(
         "short_candidates": to_list(short_candidates),
         "factor_scores":    composite.round(4).to_dict(),
         "factors_used":     list(factor_scores_dict.keys()),
+        "evolved_factors":  list(evolved.keys()),
         "description":      regime_result["description"],
         "timestamp":        regime_result["timestamp"],
     }

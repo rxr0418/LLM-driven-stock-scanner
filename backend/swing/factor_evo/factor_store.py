@@ -21,8 +21,8 @@ warnings.filterwarnings("ignore")
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
 # IC threshold to consider a factor worth keeping
-IC_THRESHOLD     = 0.02
-IR_THRESHOLD     = 0.30
+IC_THRESHOLD = 0.02
+IR_THRESHOLD = 0.30
 
 
 # ─────────────────────────────────────────────────────────────
