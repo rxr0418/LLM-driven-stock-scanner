@@ -1,6 +1,6 @@
 # LLM-Driven Stock Scanner
 
-A full-stack stock scanner combining **regime-adaptive factor selection**, **premarket momentum detection**, and **LLM-powered catalyst analysis** to surface actionable trading candidates. The swing trade pipeline uses a **multi-agent architecture** (Search Agent → Memory Agent → Decision Agent) grounded in a five-layer RAG knowledge base that self-accumulates from real trading outcomes.
+A full-stack stock scanner combining **regime-adaptive factor selection**, **premarket momentum detection**, and **LLM-powered catalyst analysis** to surface actionable trading candidates. The swing trade pipeline uses a **multi-agent architecture** (Search Agent → Memory Agent → Skeptic Agent → Decision Agent) grounded in a five-layer RAG knowledge base that self-accumulates from real trading outcomes.
 
 ---
 
@@ -10,9 +10,10 @@ A full-stack stock scanner combining **regime-adaptive factor selection**, **pre
 1. Detects the current market regime (TRENDING / VOLATILE / NEUTRAL) using VIX, realized volatility, and trend consistency
 2. Selects and weights factors based on regime — momentum in trending markets, reversal in volatile markets
 3. Scores and ranks all S&P 500 stocks (~478) cross-sectionally, selects top N candidates per side
-4. For each candidate, runs a **sequential** two-agent pipeline:
+4. For each candidate, runs a **sequential** specialist-agent pipeline:
    - **Search Agent** reads Yahoo Finance headlines, then calls Tavily if needed (Claude native tool_use, max 2 searches). Outputs `catalyst_type` used by next agent.
    - **Memory Agent** uses `catalyst_type` to build a semantic query, then retrieves across five RAG layers (knowledge rules, past decisions, upcoming events, analyst ratings, SEC filings). No LLM call — pure DB retrieval.
+   - **Skeptic Agent** audits the combined thesis, flags overstated catalysts or weak evidence, and emits a `confidence_cap` plus recheck questions.
    - **Decision Agent** synthesizes all context via explicit Thought → Action reasoning and outputs signal, confidence, reason, and holding period. Schema-validated with up to 2 self-correction retries.
 5. Writes a full decision snapshot with embedding to Supabase for future RAG retrieval
 6. Outputs a ranked watchlist; `NO_POSITION` for low-conviction or high-risk candidates
@@ -147,11 +148,22 @@ Phase 2 — Per-Ticker Analysis (parallel across candidates, sequential within)
   │  5. SEC 8-K / 10-Q summaries │
   └──────────────┬───────────────┘
                  │
+  ┌──────────────▼───────────────┐
+  │       Skeptic Agent          │
+  │  Thesis audit                │
+  │  → overstated catalyst check │
+  │  → evidence weakness check   │
+  │  → confidence_cap            │
+  │  → recheck request           │
+  └──────────────┬───────────────┘
+                 │
             merge() — pure Python, no LLM
                  │
   ┌──────────────▼───────────────┐
   │      Decision Agent          │
+  │  Arbitrates all agent views  │
   │  Thought → Action → JSON     │
+  │  respects confidence_cap     │
   │  schema validate + retry     │
   │  (Sonnet, cached system)     │
   └──────────────┬───────────────┘
@@ -177,9 +189,11 @@ Phase 2 — Per-Ticker Analysis (parallel across candidates, sequential within)
 
 Returns `event_risk_flag` if a binary event is within 5 days.
 
-**merge()** — Pure Python. Assembles all context into a single dict. Applies regime-based `max_candidates` (6 / 8 / 10). No LLM, no DB calls.
+**Skeptic Agent** — Claude Haiku critique pass. It does not make the final trading decision and does not directly call other agents. It audits the combined quant/search/memory thesis for headline misreadings, overstated catalysts, weak evidence, sample-size problems, and confidence overreach. Outputs `thesis_quality`, `concern_level`, `confidence_cap`, concerns, and optional recheck questions for the orchestrator.
 
-**Decision Agent** — Claude Sonnet with prompt-cached system prompt. ReAct format (Thought → Action → JSON). `_validate()` checks signal enum, confidence range, alignment enum, holding period type, reason presence. Retries up to `MAX_DECISION_RETRIES=2` times on failure, feeding error list back for self-correction.
+**merge()** — Pure Python. Assembles Search, Memory, and Skeptic outputs into a single dict. Applies regime-based `max_candidates` (6 / 8 / 10). No LLM, no DB calls.
+
+**Decision Agent** — Claude Sonnet with prompt-cached system prompt. ReAct format (Thought → Action → JSON). It arbitrates Search/Memory/Skeptic evidence, respects Skeptic `confidence_cap` unless explicitly resolving the concern, and outputs `NO_POSITION` when the thesis is unresolved. `_validate()` checks signal enum, confidence range, alignment enum, holding period type, reason presence. Retries up to `MAX_DECISION_RETRIES=2` times on failure, feeding error list back for self-correction.
 
 ### MCP Pipeline (Day Trade)
 
@@ -385,9 +399,11 @@ Empirical IC on this dataset:
 
 ## Key Design Decisions
 
-**Sequential vs parallel agent execution.** Search Agent and Memory Agent run sequentially (not in parallel) because Memory Agent needs `catalyst_type` from Search Agent to build a semantically precise RAG query. Parallelism is preserved across tickers.
+**Sequential vs parallel agent execution.** Search Agent, Memory Agent, and Skeptic Agent run sequentially within a ticker because Memory Agent needs `catalyst_type` from Search Agent, and Skeptic Agent audits the combined Search + Memory thesis. Parallelism is preserved across tickers.
 
 **Memory Agent has no LLM call.** All five retrieval layers are pure DB queries. This keeps Memory Agent fast (<200ms), deterministic, and free. The LLM budget is concentrated in Decision Agent where reasoning actually matters.
+
+**Skeptic Agent as thesis auditor.** The system separates “finding supporting evidence” from “challenging the thesis.” Skeptic Agent can cap confidence or request recheck, but routing remains centralized in the orchestrator; it cannot directly call Search or Memory.
 
 **Native tool_use over hand-parsed ReAct.** Search Agent uses Claude's `tools=[]` API. This eliminates fragile regex parsing, gives structured tool inputs, and lets the model decide tool call count naturally within the limit.
 

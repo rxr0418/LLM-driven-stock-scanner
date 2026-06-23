@@ -35,33 +35,50 @@ from config import (
     ANALYST_MODEL, DECISION_AGENT_MAX_TOKENS, MAX_DECISION_RETRIES,
     MAX_KNOWLEDGE_RULES, MAX_ANALYST_RATINGS, MAX_SEC_FILINGS,
 )
+from swing.agents.orchestrator_types import VALID_MISSING_INFO_TYPES, CAPABILITY_REGISTRY
 
 warnings.filterwarnings("ignore")
 
-SYSTEM_PROMPT = """You are a quantitative swing trade decision agent.
+_CAPABILITY_LINES = "\n".join(
+    f'  "{k}": {v["description"]} → dispatches {v["agent"]} Agent'
+    for k, v in CAPABILITY_REGISTRY.items()
+)
+
+SYSTEM_PROMPT = f"""You are a quantitative swing trade decision agent.
 
 You receive a merged context containing:
 - Factor score and signal direction from the quant scanner
 - News catalyst summary from the Search Agent
 - Historical win rates and trading rules from the Memory Agent
+- Thesis audit from the Skeptic Agent
 
 Your job is to produce a final trading decision using explicit reasoning.
 
 You MUST follow this ReAct format:
 
 Thought: [reason through each piece of evidence]
-Action: decide | no_position(reason)
+Action: decide | no_position(reason) | need_recheck(missing_info_type)
 
-Use Action: no_position(reason) when:
+── When to use each Action ──────────────────────────────────────────
+Action: no_position(reason) when:
   - catalyst_strength is NONE and news_alignment is NEUTRAL/CONTRADICTS
   - risk_flag contains earnings/FDA binary event within 48 hours
-  - confidence_in_prior is NONE and catalyst is ambiguous
-  - regime is VOLATILE and factor signal is weak (score < 0.3 for LONG, > 0.7 for SHORT)
+  - regime is VOLATILE and factor signal is weak
+  - Skeptic concern_level is HIGH and unresolved
 
-Use Action: decide when you have enough conviction to output a signal.
+Action: need_recheck(missing_info_type) when:
+  - A SPECIFIC piece of verifiable information is missing that would change your decision
+  - The gap is addressable by one of the agents below
+  - You have NOT already requested a recheck (only one recheck allowed)
+  Valid missing_info_type values (use EXACTLY one of these):
+{_CAPABILITY_LINES}
 
-After Action: decide, output JSON in this exact format:
-{
+Action: decide when you have enough information to form a conviction.
+── ──────────────────────────────────────────────────────────────────
+
+After Action: decide, output JSON:
+{{
+  "status": "DECIDE",
   "signal": "STRONG_BUY|BUY|NEUTRAL|SHORT|STRONG_SHORT|NO_POSITION",
   "confidence": integer 0-100,
   "news_alignment": "SUPPORTS|CONTRADICTS|NEUTRAL",
@@ -69,7 +86,27 @@ After Action: decide, output JSON in this exact format:
   "risk_flag": "none or specific risk",
   "holding_period_days": integer,
   "react_summary": "2-3 sentence summary of your reasoning chain"
-}
+}}
+
+After Action: no_position, output JSON:
+{{
+  "status": "DECIDE",
+  "signal": "NO_POSITION",
+  "confidence": 0,
+  "news_alignment": "NEUTRAL",
+  "reason": "brief reason for pass",
+  "risk_flag": "stated reason",
+  "holding_period_days": 0,
+  "react_summary": "why you chose to pass"
+}}
+
+After Action: need_recheck, output JSON:
+{{
+  "status": "NEED_RECHECK",
+  "missing_info_type": "one of the valid types above",
+  "requested_agent": "SEARCH|MEMORY",
+  "recheck_questions": ["specific question 1", "specific question 2"]
+}}
 
 Confidence calibration:
   85-100: Factor + news both strongly confirm, reliable historical stats
@@ -79,16 +116,8 @@ Confidence calibration:
   10-29 : News contradicts signal or major risk present
   0-9   : Active risk event (earnings, regulatory, fraud)
 
-After Action: no_position, output JSON:
-{
-  "signal": "NO_POSITION",
-  "confidence": 0,
-  "news_alignment": "NEUTRAL",
-  "reason": "brief reason for pass",
-  "risk_flag": "stated reason",
-  "holding_period_days": 0,
-  "react_summary": "why you chose to pass"
-}
+If Skeptic Agent provides a confidence_cap, your confidence must not exceed it
+unless you explicitly explain why the skeptic concern is resolved.
 
 Return ONLY the JSON after your action. No markdown, no extra text.
 Keep your Thought to 3 sentences maximum. Do not use ** or any markdown formatting."""
@@ -127,10 +156,29 @@ def _extract_json(text: str) -> dict | None:
 def _validate(result: dict) -> list[str]:
     """
     Validate required fields and value ranges.
+    Handles both DECIDE and NEED_RECHECK status.
     Returns a list of error strings (empty = valid).
     """
     errors = []
+    status = result.get("status")
 
+    if status not in {"DECIDE", "NEED_RECHECK"}:
+        errors.append(f"status must be 'DECIDE' or 'NEED_RECHECK', got {status!r}")
+        return errors  # can't validate further without knowing the type
+
+    if status == "NEED_RECHECK":
+        mit = result.get("missing_info_type")
+        if mit not in VALID_MISSING_INFO_TYPES:
+            errors.append(
+                f"missing_info_type must be one of {sorted(VALID_MISSING_INFO_TYPES)}, got {mit!r}"
+            )
+        if result.get("requested_agent") not in {"SEARCH", "MEMORY"}:
+            errors.append("requested_agent must be 'SEARCH' or 'MEMORY'")
+        if not isinstance(result.get("recheck_questions"), list) or not result["recheck_questions"]:
+            errors.append("recheck_questions must be a non-empty list")
+        return errors
+
+    # status == "DECIDE"
     signal = result.get("signal")
     if signal not in VALID_SIGNALS:
         errors.append(f"signal must be one of {VALID_SIGNALS}, got {signal!r}")
@@ -205,6 +253,7 @@ def _build_prompt(context: dict) -> str:
     regime           = context.get("regime", "NEUTRAL")
     search           = context.get("search", {})
     memory           = context.get("memory", {})
+    skeptic          = context.get("skeptic", {})
 
     rules_text = "\n".join(
         f"  - {r}" for r in memory.get("knowledge_rules", [])[:MAX_KNOWLEDGE_RULES]
@@ -249,25 +298,46 @@ MEMORY AGENT FINDINGS:
   Similar past cases:
 {_format_cases(memory.get('similar_cases', []))}
 
+SKEPTIC AGENT REVIEW:
+  Thesis quality : {skeptic.get('thesis_quality', 'MIXED')}
+  Concern level  : {skeptic.get('concern_level', 'MEDIUM')}
+  Confidence cap : {skeptic.get('confidence_cap', 70)}%
+  Needs recheck  : {skeptic.get('needs_recheck', False)}
+  Summary        : {skeptic.get('summary', 'No skeptic review.')}
+  Concerns       :
+{chr(10).join(f"  - {c}" for c in skeptic.get('concerns', [])) or "  - None."}
+  Recheck questions:
+{chr(10).join(f"  - {q}" for q in skeptic.get('recheck_questions', [])) or "  - None."}
+
 Start your Thought chain now, then output Action and final JSON."""
 
 
-def run(context: dict) -> dict:
+def run(context: dict, forced: bool = False) -> dict:
     """
     Run the Decision Agent for a single ticker.
-    Retries up to MAX_DECISION_RETRIES times on schema validation failure.
 
     Args:
-        context: output of merge.merge()
+        context: output of merge.build_decision_context()
+        forced:  True when Orchestrator hit recheck limit — injected into prompt
+                 so the agent knows it must decide with current information.
 
     Returns:
-        Final decision dict with signal, confidence, reason, holding_period_days.
+        One of:
+          {"status": "DECIDE", "signal": ..., "confidence": ..., ...}
+          {"status": "NEED_RECHECK", "missing_info_type": ..., "requested_agent": ..., ...}
+          fallback DECIDE on total failure
     """
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
     ticker = context.get("ticker", "UNKNOWN")
     factor_score = context.get("factor_score", 0.5)
 
     prompt = _build_prompt(context)
+    if forced:
+        prompt += (
+            "\n\nNOTE: You have already used your one recheck. "
+            "You MUST use Action: decide or Action: no_position now — "
+            "NEED_RECHECK is not allowed."
+        )
     messages = [{"role": "user", "content": prompt}]
 
     for attempt in range(MAX_DECISION_RETRIES + 1):
@@ -288,7 +358,11 @@ def run(context: dict) -> dict:
         if result is None:
             errors = ["JSON parse failed"]
         else:
-            errors = _validate(result)
+            # Enforce forced-decision constraint
+            if forced and result.get("status") == "NEED_RECHECK":
+                errors = ["NEED_RECHECK not allowed when forced=True"]
+            else:
+                errors = _validate(result)
 
         if not errors:
             break
@@ -296,7 +370,6 @@ def run(context: dict) -> dict:
         print(f"  [decision_agent] {ticker}: attempt {attempt+1} failed — {errors}")
 
         if attempt < MAX_DECISION_RETRIES:
-            # Feed the error back so Claude can self-correct
             messages.append({"role": "assistant", "content": raw})
             messages.append({
                 "role": "user",
@@ -309,8 +382,18 @@ def run(context: dict) -> dict:
             print(f"  [decision_agent] {ticker}: all retries exhausted, using fallback")
             return _fallback(ticker)
 
-    result["ticker"]           = ticker
-    result["factor_score"]     = factor_score
+    # NEED_RECHECK — return as-is for Orchestrator to handle
+    if result.get("status") == "NEED_RECHECK":
+        result["ticker"] = ticker
+        print(
+            f"  [decision_agent] {ticker}: NEED_RECHECK "
+            f"({result.get('missing_info_type')} → {result.get('requested_agent')})"
+        )
+        return result
+
+    # DECIDE — attach metadata
+    result["ticker"]            = ticker
+    result["factor_score"]      = factor_score
     result["full_react_output"] = raw
 
     if result.get("signal") == "NO_POSITION":
@@ -322,7 +405,6 @@ def run(context: dict) -> dict:
         f"(conf={result.get('confidence')}%, "
         f"hold={result.get('holding_period_days')}d)"
     )
-
     return result
 
 

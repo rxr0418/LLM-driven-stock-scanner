@@ -172,22 +172,34 @@ def run(
     factor_score: float,
     regime: str,
     yahoo_articles: list,
+    recheck_questions: list | None = None,
 ) -> dict:
     """
     Run the Search Agent using Claude native tool_use.
 
     Args:
-        ticker           : stock symbol
-        signal_direction : "LONG" or "SHORT"
-        factor_score     : composite score from scanner (0-1)
-        regime           : current market regime
-        yahoo_articles   : list of {title, publisher} dicts from Yahoo
+        ticker             : stock symbol
+        signal_direction   : "LONG" or "SHORT"
+        factor_score       : composite score from scanner (0-1)
+        regime             : current market regime
+        yahoo_articles     : list of {title, publisher} dicts from Yahoo
+        recheck_questions  : if provided, this is a targeted recheck — focus
+                             web_search on answering these specific questions
 
     Returns:
         Structured catalyst summary dict for merge() and Decision Agent.
     """
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
     headlines_text = _format_headlines(yahoo_articles)
+
+    if recheck_questions:
+        recheck_block = (
+            "\n\nRECHECK MODE — answer these specific questions before outputting JSON:\n"
+            + "\n".join(f"  - {q}" for q in recheck_questions)
+            + "\nUse web_search to find the answers."
+        )
+    else:
+        recheck_block = ""
 
     messages = [{
         "role": "user",
@@ -199,6 +211,7 @@ def run(
             f"{headlines_text}\n\n"
             f"Identify the highest-impact catalyst, use web_search if needed, "
             f"then output the final JSON."
+            f"{recheck_block}"
         ),
     }]
 

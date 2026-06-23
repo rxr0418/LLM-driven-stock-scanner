@@ -6,7 +6,7 @@ Phase 1 (unchanged):
 
 Phase 2 (new multi-agent):
   For each candidate (parallel across tickers):
-    Search Agent + Memory Agent (parallel)
+    Search Agent -> Memory Agent -> Skeptic Agent
     → merge()
     → Decision Agent (ReAct)
   → write decision snapshot to Supabase
@@ -29,12 +29,9 @@ from swing.data import fetch_price_data, fetch_news, fetch_market_overview, UNIV
 from swing.regime import detect_regime
 from swing.scanner import run_scan
 from swing.agents import (
-    search_agent_run,
-    memory_agent_run,
-    merge,
+    run_ticker_async,
     estimate_holding_period,
     get_max_candidates,
-    decision_agent_run,
 )
 from database import write_decision_snapshot, write_news_evidence
 
@@ -61,52 +58,41 @@ async def analyze_candidate(
     factors_used: list,
 ) -> dict:
     """
-    Run Search Agent + Memory Agent in parallel, then Decision Agent.
-    Returns the full decision dict with signal_id attached.
+    Run the full orchestrated pipeline for one ticker.
+    Orchestrator handles Search → Memory → Skeptic → [recheck] → Decision.
     """
     print(f"\n[phase2] {ticker} ({signal_direction}, score={factor_score:.3f})")
 
-    # Fetch Yahoo headlines (sync, fast — called before async)
     yahoo_articles = fetch_news(ticker, max_articles=5)
 
-    # Search Agent first — Memory Agent needs catalyst_type from its output
-    search_result = await asyncio.to_thread(
-        search_agent_run,
-        ticker, signal_direction, factor_score, regime, yahoo_articles,
-    )
-
-    # Memory Agent second — now has catalyst_type for semantic retrieval
-    memory_result = await asyncio.to_thread(
-        memory_agent_run,
-        ticker, signal_direction, regime, factors_used,
-        search_result.get("catalyst_type"),
-    )
-
-    
-    # Merge context
-    context = merge(
+    state, decision = await run_ticker_async(
         ticker=ticker,
         signal_direction=signal_direction,
         factor_score=factor_score,
         regime=regime,
-        search_result=search_result,
-        memory_result=memory_result,
+        factors_used=factors_used,
+        yahoo_articles=yahoo_articles,
     )
 
-    # Decision Agent (sync — single LLM call with ReAct)
-    decision = await asyncio.to_thread(decision_agent_run, context)
-
-    # Attach holding period from merge utility (cross-check with agent output)
+    # Holding period fallback
     agent_hold = decision.get("holding_period_days", 0)
-    calc_hold = estimate_holding_period(regime, decision.get("confidence", 0))
-    # Use agent's output; fall back to calculated if agent returned 0 for a real signal
     if agent_hold == 0 and decision.get("signal") not in ("NO_POSITION", "NEUTRAL"):
-        decision["holding_period_days"] = calc_hold
+        decision["holding_period_days"] = estimate_holding_period(
+            regime, decision.get("confidence", 0)
+        )
 
-    # Attach signal_id
-    decision["signal_id"] = make_signal_id(ticker)
-    decision["search_summary"] = search_result
-    decision["memory_context"] = memory_result
+    # Attach identifiers and raw state for DB write
+    from swing.agents.orchestrator_types import latest_round
+    decision["signal_id"]     = make_signal_id(ticker)
+    decision["search_summary"] = latest_round(state["search"]) or {}
+    decision["memory_context"] = {
+        **(latest_round(state["memory"]) or {}),
+        "skeptic_review": latest_round(state["skeptic"]) or {},
+    }
+    decision["skeptic_review"]    = latest_round(state["skeptic"]) or {}
+    decision["orchestrator_steps"] = state["steps"]
+    decision["recheck_count"]      = state["recheck_count"]
+    decision["forced_decision"]    = state["forced_decision"]
 
     return decision
 
@@ -228,6 +214,8 @@ async def run_full_pipeline(
             "risk_flag":            decision.get("risk_flag", "none"),
             "holding_period_days":  decision.get("holding_period_days", 0),
             "signal_id":            decision.get("signal_id", ""),
+            "skeptic_concern":       decision.get("skeptic_review", {}).get("concern_level", ""),
+            "skeptic_summary":       decision.get("skeptic_review", {}).get("summary", ""),
         }
 
         if is_long:

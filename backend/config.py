@@ -40,6 +40,9 @@ SEARCH_AGENT_MAX_TOKENS    = 500
 # Decision Agent: max tokens per LLM call
 DECISION_AGENT_MAX_TOKENS  = 900
 
+# Skeptic Agent: max tokens per critique call
+SKEPTIC_AGENT_MAX_TOKENS   = 700
+
 # LLM Analyst (single-agent path): max tokens
 ANALYST_MAX_TOKENS         = 400
 
