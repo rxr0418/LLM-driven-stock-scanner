@@ -260,10 +260,14 @@ def run_factor_scan(top_n: int = 10) -> dict:
 # ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    import sys
-    top_n = int(sys.argv[1]) if len(sys.argv) > 1 else 3
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--top-n",   type=int, default=3)
+    parser.add_argument("--save-db", action="store_true")
+    parser.add_argument("--lang",    default="en")
+    args = parser.parse_args()
 
-    result = asyncio.run(run_full_pipeline(top_n=top_n))
+    result = asyncio.run(run_full_pipeline(top_n=args.top_n, lang=args.lang))
 
     if "error" in result:
         print(f"\nError: {result['error']}")
