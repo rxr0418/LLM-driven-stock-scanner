@@ -107,14 +107,12 @@ def fill_outcomes_for_window(window_days: int) -> int:
     conn = get_connection()
     cur  = conn.cursor()
 
-    # 只查有 signal_id 的记录（新架构产生的）
     cur.execute(f"""
         SELECT signal_id, ticker, signal, price_at_scan, scan_date
         FROM swing_results
         WHERE {col_return} IS NULL
           AND scan_date <= %s
           AND signal IN %s
-          AND signal_id IS NOT NULL
         ORDER BY scan_date ASC
     """, (cutoff, ACTIVE_SIGNALS))
 
@@ -151,26 +149,34 @@ def fill_outcomes_for_window(window_days: int) -> int:
         try:
             conn = get_connection()
             cur  = conn.cursor()
-            cur.execute(f"""
-                UPDATE swing_results
-                SET {col_return}  = %s,
-                    {col_outcome} = %s,
-                    filled_at     = %s
-                WHERE signal_id = %s
-            """, (
-                round(actual_return * 100, 2),
-                outcome,
-                datetime.now(),
-                signal_id,
-            ))
+            if signal_id:
+                cur.execute(f"""
+                    UPDATE swing_results
+                    SET {col_return}  = %s,
+                        {col_outcome} = %s,
+                        filled_at     = %s
+                    WHERE signal_id = %s
+                """, (round(actual_return * 100, 2), outcome, datetime.now(), signal_id))
+            else:
+                # Legacy rows without signal_id — match by ticker + scan_date + signal
+                cur.execute(f"""
+                    UPDATE swing_results
+                    SET {col_return}  = %s,
+                        {col_outcome} = %s,
+                        filled_at     = %s
+                    WHERE ticker = %s AND scan_date = %s AND signal = %s
+                      AND {col_return} IS NULL
+                """, (round(actual_return * 100, 2), outcome, datetime.now(),
+                      ticker, scan_date, signal))
             conn.commit()
             cur.close()
             conn.close()
             filled += 1
-            print(f"[outcomes] {ticker} {scan_date} ({signal_id}) → "
+            label = signal_id or f"{ticker}@{scan_date}"
+            print(f"[outcomes] {ticker} {scan_date} ({label}) → "
                   f"{actual_return:+.1%} ({outcome}) [{window_days}d]")
         except Exception as e:
-            print(f"[outcomes] Failed to update {signal_id}: {e}")
+            print(f"[outcomes] Failed to update {signal_id or ticker}: {e}")
 
     return filled
 
