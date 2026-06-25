@@ -35,7 +35,7 @@ MAX_TAVILY_SEARCHES = 2
 MAX_DECISION_RETRIES = 2
 
 # Search Agent: max tokens per LLM call
-SEARCH_AGENT_MAX_TOKENS    = 500
+SEARCH_AGENT_MAX_TOKENS    = 800
 
 # Decision Agent: max tokens per LLM call
 DECISION_AGENT_MAX_TOKENS  = 900

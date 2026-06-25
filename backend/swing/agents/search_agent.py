@@ -243,6 +243,17 @@ def run(
 
         messages.append({"role": "assistant", "content": response.content})
 
+        # Output was truncated — ask Claude to re-output only the JSON
+        if response.stop_reason == "max_tokens":
+            log.warning("output truncated, requesting JSON-only retry",
+                        extra={"ticker": ticker, "turn": turn})
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({
+                "role": "user",
+                "content": "Your output was cut off. Output ONLY the JSON object, no explanation.",
+            })
+            continue
+
         # Claude finished — extract final JSON from text block
         if response.stop_reason == "end_turn":
             final_text = ""
