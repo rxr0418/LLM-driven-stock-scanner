@@ -34,7 +34,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FINNHUB_API_KEY:   ${{ secrets.FINNHUB_API_KEY }}
           SUPABASE_URL:      ${{ secrets.SUPABASE_URL }}
-        run: cd backend && python swing/main.py --save-db
+        run: cd backend && python -m swing.main --save-db
       - name: Backfill swing outcomes
         env:
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
