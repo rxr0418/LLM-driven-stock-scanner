@@ -25,6 +25,11 @@ from swing.agents.orchestrator_types import (
     CAPABILITY_REGISTRY,
 )
 from swing.agents.merge import build_decision_context
+from logger import get_logger
+from resilience import ticker_timeout, TICKER_TIMEOUT_SECONDS
+from tracing import tracer
+
+log = get_logger(__name__)
 
 MAX_RECHECK = 2  # hard cap across all recheck sources
 
@@ -33,9 +38,9 @@ MAX_RECHECK = 2  # hard cap across all recheck sources
 # Internal helpers
 # ─────────────────────────────────────────────────────────────
 
-def _log(state: SharedState, msg: str) -> None:
+def _log(state: SharedState, msg: str, level: str = "info", **extra) -> None:
     state["steps"].append(msg)
-    print(f"  [orchestrator] {state['ticker']}: {msg}")
+    getattr(log, level)(msg, extra={"ticker": state["ticker"], **extra})
 
 
 def _run_search(state: SharedState, recheck_questions: Optional[list[str]] = None) -> None:
@@ -159,10 +164,28 @@ def run_ticker(
     state = make_shared_state(ticker, signal_direction, factor_score, regime, factors_used)
     state["_yahoo_articles"] = yahoo_articles  # type: ignore[typeddict-unknown-key]
 
+    with tracer.ticker_trace(ticker, regime=regime, signal_direction=signal_direction,
+                             factor_score=factor_score) as trace:
+        return _run_pipeline(state, trace)
+
+
+def _run_pipeline(state: SharedState, trace) -> tuple[SharedState, dict]:
+    """Inner pipeline — separated so tracer context wraps everything."""
+    ticker = state["ticker"]
+
     # ── Phase 1: initial pipeline ─────────────────────────────
-    _run_search(state)
-    _run_memory(state)
-    skeptic_result = _run_skeptic(state)
+    with trace.span("search_agent", input={"ticker": ticker}) as span:
+        _run_search(state)
+        span.end(output=latest_round(state["search"]))
+
+    with trace.span("memory_agent", input={"ticker": ticker}) as span:
+        _run_memory(state)
+        span.end(output={"cases": len((latest_round(state["memory"]) or {}).get("similar_cases", []))})
+
+    with trace.span("skeptic_agent") as span:
+        skeptic_result = _run_skeptic(state)
+        span.end(output={"concern_level": skeptic_result.get("concern_level"),
+                         "confidence_cap": skeptic_result.get("confidence_cap")})
 
     # ── Phase 2: Skeptic recheck routing ─────────────────────
     if (
@@ -175,17 +198,24 @@ def run_ticker(
         state["skeptic_block_used"] = True
         state["recheck_count"] += 1
 
-        # Skeptic recheck always targets Search (catalyst verification)
-        _run_search(state, recheck_questions=questions)
-        # Re-run Skeptic with updated search result
-        skeptic_result = _run_skeptic(state)
+        with trace.span("search_agent_recheck", input={"questions": questions}) as span:
+            _run_search(state, recheck_questions=questions)
+            span.end(output=latest_round(state["search"]))
+
+        with trace.span("skeptic_agent_recheck") as span:
+            skeptic_result = _run_skeptic(state)
+            span.end(output={"concern_level": skeptic_result.get("concern_level"),
+                             "confidence_cap": skeptic_result.get("confidence_cap")})
     else:
         if skeptic_result.get("needs_recheck"):
             state["forced_decision"] = True
             _log(state, "skeptic recheck limit hit — proceeding with current state")
 
     # ── Phase 3: Decision Agent ───────────────────────────────
-    decision = _run_decision(state, forced=state["forced_decision"])
+    with trace.span("decision_agent", input={"forced": state["forced_decision"]}) as span:
+        decision = _run_decision(state, forced=state["forced_decision"])
+        span.end(output={"status": decision.get("status"), "signal": decision.get("signal"),
+                         "confidence": decision.get("confidence")})
 
     # ── Phase 4: Decision recheck routing ────────────────────
     if (
@@ -197,28 +227,37 @@ def run_ticker(
         requested_agent   = decision["requested_agent"]
         questions         = decision.get("recheck_questions", [])
 
-        _log(state, f"decision requested recheck "
-                    f"type={missing_info_type} agent={requested_agent}")
+        _log(state, f"decision requested recheck type={missing_info_type} agent={requested_agent}")
         state["decision_recheck_used"] = True
         state["recheck_count"] += 1
 
         if requested_agent == "SEARCH":
-            _run_search(state, recheck_questions=questions)
-            # Re-run Skeptic so it audits the new search result
-            _run_skeptic(state)
+            with trace.span("search_agent_decision_recheck", input={"questions": questions}) as span:
+                _run_search(state, recheck_questions=questions)
+                span.end(output=latest_round(state["search"]))
+            with trace.span("skeptic_agent_post_recheck") as span:
+                _run_skeptic(state)
+                span.end(output=latest_round(state["skeptic"]))
         elif requested_agent == "MEMORY":
             strategy = _resolve_memory_strategy(missing_info_type)
-            _run_memory(state, strategy=strategy, recheck_questions=questions)
+            with trace.span("memory_agent_recheck", input={"strategy": strategy}) as span:
+                _run_memory(state, strategy=strategy, recheck_questions=questions)
+                span.end(output={"strategy": strategy})
 
-        # Final Decision — forced, no more recheks allowed
         state["forced_decision"] = True
-        decision = _run_decision(state, forced=True)
+        with trace.span("decision_agent_forced") as span:
+            decision = _run_decision(state, forced=True)
+            span.end(output={"signal": decision.get("signal"), "confidence": decision.get("confidence")})
+
     elif decision.get("status") == "NEED_RECHECK":
-        # Limit already hit — force with current state
         state["forced_decision"] = True
         _log(state, "decision recheck limit hit — forcing decision")
-        decision = _run_decision(state, forced=True)
+        with trace.span("decision_agent_forced") as span:
+            decision = _run_decision(state, forced=True)
+            span.end(output={"signal": decision.get("signal"), "confidence": decision.get("confidence")})
 
+    trace.update(output={"signal": decision.get("signal"), "confidence": decision.get("confidence"),
+                         "recheck_count": state["recheck_count"]})
     _log(state, f"done signal={decision.get('signal')} conf={decision.get('confidence')}")
     return state, decision
 
@@ -231,8 +270,9 @@ async def run_ticker_async(
     factors_used: list[str],
     yahoo_articles: list,
 ) -> tuple[SharedState, dict]:
-    """Async wrapper — runs the synchronous loop in a thread."""
-    return await asyncio.to_thread(
-        run_ticker,
-        ticker, signal_direction, factor_score, regime, factors_used, yahoo_articles,
-    )
+    """Async wrapper with per-ticker timeout."""
+    async with ticker_timeout(ticker, seconds=TICKER_TIMEOUT_SECONDS):
+        return await asyncio.to_thread(
+            run_ticker,
+            ticker, signal_direction, factor_score, regime, factors_used, yahoo_articles,
+        )

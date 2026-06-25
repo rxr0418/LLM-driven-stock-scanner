@@ -21,6 +21,9 @@ warnings.filterwarnings("ignore")
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from embeddings import build_knowledge_query
 from config import MAX_KNOWLEDGE_RULES, MAX_SIMILAR_CASES, MAX_ANALYST_RATINGS, MAX_SEC_FILINGS
+from logger import get_logger
+
+log = get_logger(__name__)
 
 
 def _query_knowledge_semantic(query: str) -> list:
@@ -33,7 +36,7 @@ def _query_knowledge_semantic(query: str) -> list:
             for r in rows
         ]
     except Exception as e:
-        print(f"  [memory_agent] knowledge query failed: {e}")
+        log.warning("knowledge query failed", extra={"error": str(e)})
         return []
 
 
@@ -42,7 +45,7 @@ def _query_similar_cases(query: str) -> list:
         from database import search_swing_cases_semantic
         return search_swing_cases_semantic(query, limit=3)
     except Exception as e:
-        print(f"  [memory_agent] case retrieval failed: {e}")
+        log.warning("case retrieval failed", extra={"error": str(e)})
         return []
 
 
@@ -51,7 +54,7 @@ def _query_events(ticker: str) -> list:
         from database import get_upcoming_events
         return get_upcoming_events(ticker, within_days=14)
     except Exception as e:
-        print(f"  [memory_agent] events query failed: {e}")
+        log.warning("events query failed", extra={"error": str(e)})
         return []
 
 
@@ -60,7 +63,7 @@ def _query_analyst_ratings(ticker: str) -> list:
         from database import search_analyst_ratings
         return search_analyst_ratings(ticker, limit=5)
     except Exception as e:
-        print(f"  [memory_agent] analyst ratings query failed: {e}")
+        log.warning("analyst ratings query failed", extra={"error": str(e)})
         return []
 
 
@@ -69,7 +72,7 @@ def _query_sec_filings(ticker: str) -> list:
         from database import search_sec_filings
         return search_sec_filings(ticker, limit=2)
     except Exception as e:
-        print(f"  [memory_agent] SEC filings query failed: {e}")
+        log.warning("SEC filings query failed", extra={"error": str(e)})
         return []
 
 
@@ -101,7 +104,7 @@ def run(
     Returns:
         Memory context dict for merge() and Decision Agent.
     """
-    print(f"  [memory_agent] {ticker}: querying (catalyst={catalyst_type})")
+    log.info("querying", extra={"ticker": ticker, "catalyst_type": catalyst_type})
 
     semantic_query  = build_knowledge_query(ticker, signal_direction, regime, catalyst_type)
 
@@ -123,10 +126,9 @@ def run(
 
     event_risk_flag = _build_event_risk_flag(upcoming_events)
 
-    print(f"  [memory_agent] {ticker}: done "
-          f"(rules={len(knowledge_rules)}, cases={len(similar_cases)}, "
-          f"events={len(upcoming_events)}, ratings={len(analyst_ratings)}, "
-          f"filings={len(sec_filings)})")
+    log.info("done", extra={"ticker": ticker, "rules": len(knowledge_rules),
+                            "cases": len(similar_cases), "events": len(upcoming_events),
+                            "ratings": len(analyst_ratings), "filings": len(sec_filings)})
 
     return {
         "ticker":          ticker,

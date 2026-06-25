@@ -36,7 +36,10 @@ from config import (
     MAX_KNOWLEDGE_RULES, MAX_ANALYST_RATINGS, MAX_SEC_FILINGS,
 )
 from swing.agents.orchestrator_types import VALID_MISSING_INFO_TYPES, CAPABILITY_REGISTRY
+from logger import get_logger
+from resilience import with_retry
 
+log = get_logger(__name__)
 warnings.filterwarnings("ignore")
 
 _CAPABILITY_LINES = "\n".join(
@@ -340,8 +343,12 @@ def run(context: dict, forced: bool = False) -> dict:
         )
     messages = [{"role": "user", "content": prompt}]
 
+    @with_retry(label="decision_agent/anthropic")
+    def _create(**kwargs):
+        return client.messages.create(**kwargs)
+
     for attempt in range(MAX_DECISION_RETRIES + 1):
-        response = client.messages.create(
+        response = _create(
             model=ANALYST_MODEL,
             max_tokens=DECISION_AGENT_MAX_TOKENS,
             system=[{
@@ -367,7 +374,7 @@ def run(context: dict, forced: bool = False) -> dict:
         if not errors:
             break
 
-        print(f"  [decision_agent] {ticker}: attempt {attempt+1} failed — {errors}")
+        log.warning("schema validation failed", extra={"ticker": ticker, "attempt": attempt+1, "errors": errors})
 
         if attempt < MAX_DECISION_RETRIES:
             messages.append({"role": "assistant", "content": raw})
@@ -379,16 +386,15 @@ def run(context: dict, forced: bool = False) -> dict:
                 ),
             })
         else:
-            print(f"  [decision_agent] {ticker}: all retries exhausted, using fallback")
+            log.error("all retries exhausted, using fallback", extra={"ticker": ticker})
             return _fallback(ticker)
 
     # NEED_RECHECK — return as-is for Orchestrator to handle
     if result.get("status") == "NEED_RECHECK":
         result["ticker"] = ticker
-        print(
-            f"  [decision_agent] {ticker}: NEED_RECHECK "
-            f"({result.get('missing_info_type')} → {result.get('requested_agent')})"
-        )
+        log.info("NEED_RECHECK", extra={"ticker": ticker,
+                                        "missing_info_type": result.get("missing_info_type"),
+                                        "requested_agent": result.get("requested_agent")})
         return result
 
     # DECIDE — attach metadata
@@ -399,12 +405,9 @@ def run(context: dict, forced: bool = False) -> dict:
     if result.get("signal") == "NO_POSITION":
         result["holding_period_days"] = 0
 
-    print(
-        f"  [decision_agent] {ticker}: "
-        f"{result.get('signal')} "
-        f"(conf={result.get('confidence')}%, "
-        f"hold={result.get('holding_period_days')}d)"
-    )
+    log.info("decision", extra={"ticker": ticker, "signal": result.get("signal"),
+                                "confidence": result.get("confidence"),
+                                "holding_period_days": result.get("holding_period_days")})
     return result
 
 

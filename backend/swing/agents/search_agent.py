@@ -22,7 +22,10 @@ import anthropic
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config import SEARCH_AGENT_MODEL, SEARCH_AGENT_MAX_TOKENS, MAX_TAVILY_SEARCHES
+from logger import get_logger
+from resilience import with_retry
 
+log = get_logger(__name__)
 warnings.filterwarnings("ignore")
 
 
@@ -218,11 +221,15 @@ def run(
     search_count = 0
     react_trace  = []
 
-    print(f"  [search_agent] {ticker}: starting tool_use loop")
+    log.info("starting tool_use loop", extra={"ticker": ticker, "recheck": bool(recheck_questions)})
+
+    @with_retry(label="search_agent/anthropic")
+    def _create_message(**kwargs):
+        return client.messages.create(**kwargs)
 
     # Agent loop: Claude decides when to call tools and when to stop
     for turn in range(MAX_TAVILY_SEARCHES + 3):
-        response = client.messages.create(
+        response = _create_message(
             model=SEARCH_AGENT_MODEL,
             max_tokens=SEARCH_AGENT_MAX_TOKENS,
             system=[{
@@ -248,13 +255,14 @@ def run(
             result = _extract_json(final_text)
 
             if result is None:
-                print(f"  [search_agent] {ticker}: JSON parse failed, using fallback")
+                log.warning("JSON parse failed, using fallback", extra={"ticker": ticker})
                 return _fallback_result(ticker, search_count)
 
             result["search_count"] = search_count
             result["ticker"]       = ticker
             result["react_trace"]  = react_trace
-            print(f"  [search_agent] {ticker}: done ({search_count} searches, catalyst={result.get('catalyst_type')})")
+            log.info("done", extra={"ticker": ticker, "searches": search_count,
+                                    "catalyst": result.get("catalyst_type")})
             return result
 
         # Claude wants to call a tool
@@ -270,11 +278,11 @@ def run(
                 tool_id    = block.id
 
                 if search_count >= MAX_TAVILY_SEARCHES:
-                    # Deny the call — tell Claude it hit the limit
                     tool_output = f"Search limit ({MAX_TAVILY_SEARCHES}) reached. Use only what you have."
-                    print(f"  [search_agent] {ticker}: search limit reached, denying call")
+                    log.debug("search limit reached", extra={"ticker": ticker})
                 else:
-                    print(f"  [search_agent] {ticker}: calling {tool_name}({tool_input.get('query', '')})")
+                    log.info("calling tool", extra={"ticker": ticker, "tool": tool_name,
+                                                    "query": tool_input.get("query", "")})
                     tool_output  = _execute_tool(tool_name, tool_input)
                     search_count += 1
 
@@ -292,8 +300,7 @@ def run(
 
             messages.append({"role": "user", "content": tool_results})
 
-    # Exceeded max turns without end_turn — fallback
-    print(f"  [search_agent] {ticker}: max turns exceeded, using fallback")
+    log.warning("max turns exceeded, using fallback", extra={"ticker": ticker})
     return _fallback_result(ticker, search_count)
 
 

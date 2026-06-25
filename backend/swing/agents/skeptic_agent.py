@@ -21,7 +21,10 @@ import anthropic
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config import SEARCH_AGENT_MODEL, SKEPTIC_AGENT_MAX_TOKENS
+from logger import get_logger
+from resilience import with_retry
 
+log = get_logger(__name__)
 warnings.filterwarnings("ignore")
 
 
@@ -207,28 +210,35 @@ MEMORY AGENT:
 
 Return the audit JSON only."""
 
+    log.info("auditing thesis", extra={"ticker": ticker})
     try:
         client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
-        response = client.messages.create(
-            model=SEARCH_AGENT_MODEL,
-            max_tokens=SKEPTIC_AGENT_MAX_TOKENS,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = response.content[0].text
+
+        @with_retry(label="skeptic_agent/anthropic")
+        def _create():
+            return client.messages.create(
+                model=SEARCH_AGENT_MODEL,
+                max_tokens=SKEPTIC_AGENT_MAX_TOKENS,
+                system=[{
+                    "type": "text",
+                    "text": SYSTEM_PROMPT,
+                    "cache_control": {"type": "ephemeral"},
+                }],
+                messages=[{"role": "user", "content": prompt}],
+            )
+
+        raw = _create().content[0].text
         result = _extract_json(raw)
         errors = _validate(result) if result else ["JSON parse failed"]
         if errors:
-            print(f"  [skeptic_agent] {ticker}: invalid output {errors}, using fallback")
+            log.warning("invalid output, using fallback", extra={"ticker": ticker, "errors": errors})
             return _fallback_result(ticker, search_result, memory_result)
 
         result["ticker"] = ticker
         result["react_trace"] = raw
-        print(
-            f"  [skeptic_agent] {ticker}: "
-            f"{result['concern_level']} concern, cap={result['confidence_cap']}%"
-        )
+        log.info("done", extra={"ticker": ticker, "concern_level": result["concern_level"],
+                                "confidence_cap": result["confidence_cap"]})
         return result
     except Exception as e:
-        print(f"  [skeptic_agent] {ticker}: failed ({e}), using fallback")
+        log.error("failed, using fallback", extra={"ticker": ticker}, exc_info=True)
         return _fallback_result(ticker, search_result, memory_result)
