@@ -51,6 +51,17 @@ jobs:
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           SUPABASE_URL:    ${{ secrets.SUPABASE_URL }}
         run: cd backend && python swing/update_baseline_outcomes.py
+      - name: Run pure baseline scanner
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FINNHUB_API_KEY:   ${{ secrets.FINNHUB_API_KEY }}
+          SUPABASE_URL:      ${{ secrets.SUPABASE_URL }}
+        run: cd backend && python swing/pure_baseline_runner.py --save-db
+      - name: Backfill pure baseline outcomes
+        env:
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          SUPABASE_URL:    ${{ secrets.SUPABASE_URL }}
+        run: cd backend && python swing/update_pure_baseline_outcomes.py
 
   premarket_scan:
     if: >

@@ -13,6 +13,7 @@ Run:
 """
 
 import sys
+from datetime import date
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
@@ -179,7 +180,7 @@ def run():
     for row in rows:
         print(f"  {row[0]:<12} {row[1]:>5}  {float(row[2] or 0):>+7.2f}%  {float(row[3] or 0):>7.1f}%")
 
-    # ── 8. Baseline vs Orchestrator head-to-head ─────────────
+    # ── 8. All pipelines head-to-head ────────────────────────
     cur.execute("""
         SELECT COUNT(*) FROM information_schema.tables
         WHERE table_name = 'swing_results_baseline'
@@ -194,9 +195,13 @@ def run():
         print(f"\n── Baseline vs Orchestrator ──────────────────────────")
         print(f"  swing_results_baseline: {bl_total} rows, {bl_filled or 0} with return_5d")
 
-        if (bl_filled or 0) > 0:
-            # Baseline stats (top-3 BUY + top-3 SHORT per day)
-            cur.execute("""
+        def _pipeline_stats(cur, table: str, date_min=None, date_max=None) -> tuple:
+            where_extra = ""
+            params = []
+            if date_min and date_max:
+                where_extra = "AND scan_date >= %s AND scan_date <= %s"
+                params = [date_min, date_max]
+            cur.execute(f"""
                 SELECT COUNT(*) as n,
                   ROUND(AVG(confidence)::numeric, 1) as avg_conf,
                   ROUND(AVG(return_5d)::numeric, 2) as avg_5d,
@@ -204,47 +209,43 @@ def run():
                     WHEN (signal IN ('BUY','STRONG_BUY') AND return_5d > 0)
                       OR (signal IN ('SHORT','STRONG_SHORT') AND return_5d < 0)
                     THEN 1 ELSE 0 END) / COUNT(*), 1) as dir_acc
-                FROM swing_results_baseline
+                FROM {table}
                 WHERE return_5d IS NOT NULL
                   AND return_5d::text != 'NaN'
                   AND signal IN ('BUY','STRONG_BUY','SHORT','STRONG_SHORT')
-            """)
-            bl = cur.fetchone()
+                  {where_extra}
+            """, params)
+            return cur.fetchone()
 
-            # Orchestrator stats (same date range as baseline)
-            cur.execute("""
-                SELECT MIN(scan_date), MAX(scan_date) FROM swing_results_baseline
-            """)
+        if (bl_filled or 0) > 0:
+            cur.execute("SELECT MIN(scan_date), MAX(scan_date) FROM swing_results_baseline")
             bl_min, bl_max = cur.fetchone()
 
-            cur.execute("""
-                SELECT COUNT(*) as n,
-                  ROUND(AVG(confidence)::numeric, 1) as avg_conf,
-                  ROUND(AVG(return_5d)::numeric, 2) as avg_5d,
-                  ROUND(100.0 * SUM(CASE
-                    WHEN (signal IN ('BUY','STRONG_BUY') AND return_5d > 0)
-                      OR (signal IN ('SHORT','STRONG_SHORT') AND return_5d < 0)
-                    THEN 1 ELSE 0 END) / COUNT(*), 1) as dir_acc
-                FROM swing_results
-                WHERE return_5d IS NOT NULL
-                  AND return_5d::text != 'NaN'
-                  AND signal IN ('BUY','STRONG_BUY','SHORT','STRONG_SHORT')
-                  AND scan_date >= %s AND scan_date <= %s
-                  AND scan_date >= %s
-            """, (bl_min, bl_max, ORCHESTRATOR_START))
-            orch = cur.fetchone()
+            bl   = _pipeline_stats(cur, "swing_results_baseline")
+            orch = _pipeline_stats(cur, "swing_results",
+                                   date_min=max(bl_min, date.fromisoformat(ORCHESTRATOR_START)) if bl_min else None,
+                                   date_max=bl_max)
 
-            print(f"\n  {'Pipeline':<18} {'N':>4}  {'AvgConf':>8}  {'Avg5d':>8}  {'DirAcc':>8}")
-            print(f"  {'─'*54}")
-            print(f"  {'Baseline (1 LLM)':<18} {bl[0]:>4}  {float(bl[1] or 0):>7.1f}%  "
-                  f"{float(bl[2] or 0):>+7.2f}%  {float(bl[3] or 0):>7.1f}%")
-            if orch[0]:
-                print(f"  {'Orchestrator':<18} {orch[0]:>4}  {float(orch[1] or 0):>7.1f}%  "
-                      f"{float(orch[2] or 0):>+7.2f}%  {float(orch[3] or 0):>7.1f}%")
-            else:
-                print(f"  Orchestrator: no overlapping data yet (starts {ORCHESTRATOR_START})")
+            # Pure baseline
+            cur.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name='swing_results_pure_baseline'")
+            has_pure = cur.fetchone()[0]
+            pb = _pipeline_stats(cur, "swing_results_pure_baseline") if has_pure else None
+
+            print(f"\n  {'Pipeline':<22} {'N':>4}  {'AvgConf':>8}  {'Avg5d':>8}  {'DirAcc':>8}")
+            print(f"  {'─'*58}")
+
+            def _row(label, r):
+                if not r or not r[0]:
+                    print(f"  {label:<22}  (no data yet)")
+                    return
+                print(f"  {label:<22} {r[0]:>4}  {float(r[1] or 0):>7.1f}%  "
+                      f"{float(r[2] or 0):>+7.2f}%  {float(r[3] or 0):>7.1f}%")
+
+            _row("Pure LLM (no input)", pb)
+            _row("Factor+LLM baseline", bl)
+            _row("Orchestrator", orch)
         else:
-            print("  No baseline outcomes yet — run update_baseline_outcomes.py after 5 trading days.")
+            print("  No baseline outcomes yet — run after 5 trading days.")
 
     print(f"\n{'='*60}\n")
     cur.close()
