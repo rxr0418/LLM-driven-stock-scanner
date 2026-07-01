@@ -106,9 +106,14 @@ Rebuilt data ingestion as a fully async pipeline using asyncio/aiohttp with sema
 The swing pipeline uses a **Deterministic Orchestrator** — a typed state machine that routes between agents, enforces recheck limits, and accumulates shared state. Routing logic is pure Python (not LLM-based), making it fully unit-testable (17 tests).
 
 ```
-Phase 1 — Stock Selection (deterministic, pure Python)
+[Weekly offline — Factor Evolution Engine]
+  Claude generates factor expressions → AST sandbox → Spearman IC eval
+  (70/30 train/test split) → promote to Supabase if IC > 0.02 & IR > 0.3
+
+Phase 1 — Stock Selection (runs daily at scan time)
   Regime Detection  → VIX + realized vol + trend → regime label
-  Factor Scanner    → hand-written + IC-evolved factors → top N candidates
+  Factor Scanner    → loads hand-written + IC-evolved factors from Supabase
+                      → cross-sectional scoring → top N candidates
 
 Phase 2 — Per-Ticker Orchestration (Deterministic State Machine)
 
@@ -131,12 +136,12 @@ Phase 2 — Per-Ticker Orchestration (Deterministic State Machine)
   └──────┬───────────────────────────┘
          │ catalyst_type
   ┌──────▼───────────────────────────┐
-  │         Memory Agent             │  No LLM — pure DB retrieval
-  │  1. knowledge rules (pgvector)   │
-  │  2. similar past decisions       │
-  │  3. upcoming events              │
-  │  4. analyst ratings              │
-  │  5. SEC 8-K / 10-Q summaries    │
+  │         Memory Agent             │  No LLM — RAG + exact lookup
+  │  1. knowledge rules (pgvector)   │  ← pgvector semantic search
+  │  2. similar past decisions       │  ← pgvector semantic search
+  │  3. upcoming events              │  ← ticker exact match
+  │  4. analyst ratings              │  ← ticker exact match
+  │  5. SEC 8-K / 10-Q summaries    │  ← ticker exact match
   │  Recheck strategies:             │
   │    relax_similarity / extend_    │
   │    date_range / extend_sec_window│
