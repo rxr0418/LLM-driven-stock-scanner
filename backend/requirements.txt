@@ -13,4 +13,4 @@ aiohttp
 tavily-python
 lxml
 tenacity
-langfuse
+langfuse>=2,<3
