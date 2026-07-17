@@ -52,10 +52,12 @@ Return ONLY valid JSON:
 }
 
 Guidelines:
-- Use HIGH concern when catalyst classification is likely wrong, a binary event is near, or evidence contradicts the factor.
-- Use MEDIUM concern when evidence is thin, sample size is small, or catalyst may be priced in.
-- Use LOW concern only when factor, news, and memory are mutually reinforcing.
+- Use HIGH concern when catalyst classification is likely wrong, a binary event is imminent (within 5 days), or news clearly contradicts the factor direction.
+- Use MEDIUM concern when evidence is thin, sample size is small, catalyst may be priced in, or historical cases are limited.
+- Use LOW concern when factor and news are aligned, even if historical cases are limited or memory context is sparse.
+- Do NOT penalize for lack of historical cases alone — a new system with limited history is expected.
 - confidence_cap is a cap for the Decision Agent, not a final confidence score.
+- Typical caps: HIGH concern → 30-50, MEDIUM concern → 55-70, LOW concern → 75-90.
 """
 
 
@@ -147,10 +149,9 @@ def _fallback_result(ticker: str, search_result: dict, memory_result: dict) -> d
 
     if not memory_result.get("similar_cases"):
         concerns.append("No similar historical cases with outcomes.")
-        cap = min(cap, 65)
+        cap = min(cap, 75)
         if concern_level == "LOW":
             concern_level = "MEDIUM"
-            thesis_quality = "MIXED"
 
     if not concerns:
         concerns.append("No major thesis flaws detected.")
