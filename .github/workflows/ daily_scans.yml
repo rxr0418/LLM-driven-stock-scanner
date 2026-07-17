@@ -31,9 +31,12 @@ jobs:
           python rag/fetch_ratings.py
       - name: Run swing scan
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          FINNHUB_API_KEY:   ${{ secrets.FINNHUB_API_KEY }}
-          SUPABASE_URL:      ${{ secrets.SUPABASE_URL }}
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          FINNHUB_API_KEY:     ${{ secrets.FINNHUB_API_KEY }}
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_BASE_URL:   ${{ secrets.LANGFUSE_BASE_URL }}
         run: cd backend && python -m swing.main --save-db
       - name: Backfill swing outcomes
         env:
