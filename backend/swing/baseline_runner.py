@@ -206,12 +206,12 @@ def _save_to_db(selected: list[dict], scan_date: date) -> None:
 
 def _build_candidates_from_scan(top_n: int) -> list[dict]:
     """Re-run scanner to get today's candidates (same as swing/main.py)."""
-    from swing.scanner import run_scan, load_price_data
+    from swing.scanner import run_scan
+    from swing.data import fetch_price_data, UNIVERSE, fetch_news
     from swing.regime import detect_regime
-    from swing.data import fetch_news
 
     print("[baseline] Loading price data...")
-    price_data = load_price_data()
+    price_data = fetch_price_data(UNIVERSE, lookback_days=252)
 
     print("[baseline] Detecting regime...")
     regime_result = detect_regime()
@@ -223,7 +223,8 @@ def _build_candidates_from_scan(top_n: int) -> list[dict]:
 
     candidates = []
     for direction in ("long", "short"):
-        for item in scan_output.get(f"top_{direction}", [])[:top_n * 2]:
+        key = "long_candidates" if direction == "long" else "short_candidates"
+        for item in scan_output.get(key, [])[:top_n * 2]:
             ticker  = item["ticker"]
             articles = fetch_news(ticker, max_articles=5)
             candidates.append({
