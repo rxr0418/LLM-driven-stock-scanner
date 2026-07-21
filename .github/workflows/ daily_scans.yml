@@ -30,6 +30,7 @@ jobs:
           python rag/fetch_events.py
           python rag/fetch_ratings.py
       - name: Run swing scan
+        if: false  # LLM disabled — re-enable by removing this line
         env:
           ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
           FINNHUB_API_KEY:     ${{ secrets.FINNHUB_API_KEY }}
@@ -44,6 +45,7 @@ jobs:
           SUPABASE_URL:    ${{ secrets.SUPABASE_URL }}
         run: cd backend && python swing/update_swing_outcomes.py
       - name: Run baseline scanner
+        if: false  # LLM disabled
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FINNHUB_API_KEY:   ${{ secrets.FINNHUB_API_KEY }}
@@ -55,6 +57,7 @@ jobs:
           SUPABASE_URL:    ${{ secrets.SUPABASE_URL }}
         run: cd backend && python swing/update_baseline_outcomes.py
       - name: Run pure baseline scanner
+        if: false  # LLM disabled
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FINNHUB_API_KEY:   ${{ secrets.FINNHUB_API_KEY }}
@@ -79,6 +82,7 @@ jobs:
       - name: Install dependencies
         run: cd backend && pip install -r requirements.txt
       - name: Run premarket scan
+        if: false  # LLM disabled
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FINNHUB_API_KEY:   ${{ secrets.FINNHUB_API_KEY }}
@@ -121,6 +125,7 @@ jobs:
       - name: Install dependencies
         run: cd backend && pip install -r requirements.txt
       - name: Fetch SEC filings
+        if: false  # LLM disabled
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
